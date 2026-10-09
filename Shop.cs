@@ -52,7 +52,9 @@ public sealed class Shop(MasterData master)
         object? stones = SchemaWriter.Nil;
         if (p.ShopUpdateNum >= FreeRenewals)
         {
-            p.FreeStoneUsed += Math.Min(RenewQuartz, p.FreeStone - p.FreeStoneUsed);
+            var paid = Math.Min(RenewQuartz, p.FreeStone - p.FreeStoneUsed);
+            p.FreeStoneUsed += paid;
+            Progress.Add(p, Progress.StoneSpent, paid);
             stones = StoneRows(p);
         }
         p.ShopUpdateNum++;
@@ -78,8 +80,11 @@ public sealed class Shop(MasterData master)
             item.Sold = true;
             var gear = CreateGear(p, item.ItemType, item.ItemId, item.Rarity, item.Pop, m);
             (item.ItemType == Weapon ? weapons : equipment).Add(GearWire(p, gear));
+            // Rarity bands: 1 common (<40), 2 rare (<70), 3 legendary.
+            Progress.Add(p, Progress.EquipBuy, 1, item.Rarity < 40 ? 1UL : item.Rarity < 70 ? 2UL : 3UL);
         }
         p.Items[ItemIdHl] = Math.Max(0, p.Items.GetValueOrDefault(ItemIdHl) - cost);
+        Progress.Add(p, Progress.HlSpent, cost);
         Log.Info($"Shop: bought {weapons.Count + equipment.Count} items for {cost} HL.");
         return Obj(
             ("after_t_weapons", weapons.Count > 0 ? weapons : SchemaWriter.Nil),
@@ -183,11 +188,44 @@ public sealed class Shop(MasterData master)
     private Gear CreateGear(Player p, int kind, ulong mId, int rarity, int pop, object m)
     {
         var g = new Gear { Id = p.NextGearId++, Kind = kind, MId = mId, RarityValue = rarity, Pop = pop, CreatedAt = Now };
-        int Stat(string name, int r) => (int)Math.Ceiling((MasterData.F<int>(m, name + "_min") + MasterData.F<int>(m, name + "_per_stage") * (g.Lv - 1)) * (1 + r / 300.0));
-        g.Hp = Stat("hp", rarity); g.Atk = Stat("atk", rarity); g.Def = Stat("def", rarity);
-        g.Inte = Stat("inte", rarity); g.Res = Stat("res", rarity); g.Spd = Stat("spd", 0);
+        g.LvMax = LevelAt(MaxStage(rarity));
+        Recalc(g);
         p.Gear.Add(g);
         return g;
+    }
+
+    public void Recalc(Gear g)
+    {
+        var m = MasterRow(g.Kind, g.MId);
+        if (m == null) return;
+        int Stat(string name, int r) => (int)Math.Ceiling((MasterData.F<int>(m, name + "_min") + MasterData.F<int>(m, name + "_per_stage") * (g.Lv - 1)) * (1 + r / 300.0));
+        g.Hp = Stat("hp", g.RarityValue); g.Atk = Stat("atk", g.RarityValue); g.Def = Stat("def", g.RarityValue);
+        g.Inte = Stat("inte", g.RarityValue); g.Res = Stat("res", g.RarityValue); g.Spd = Stat("spd", 0);
+    }
+
+    // Item World depth by rarity value (SyncDefineData ITEM_WORLD_COMMON/RARE/LEGEND) and the item
+    // level after clearing a floor (MWeaponEquipmentLevel: boss floors jump, e.g. floor 30 = Lv50).
+    public static int MaxStage(int rarity) => rarity < 40 ? 30 : rarity < 70 ? 60 : 100;
+
+    private Dictionary<int, int>? _levels;
+
+    public int LevelAt(int stage)
+    {
+        _levels ??= master.All("MWeaponEquipmentLevel").GroupBy(r => MasterData.F<int>(r, "stage"))
+            .ToDictionary(g => g.Key, g => g.Max(r => MasterData.F<int>(r, "lv")));
+        return _levels.Where(kv => kv.Key <= stage).Select(kv => kv.Value).DefaultIfEmpty(1).Max();
+    }
+
+    public object? GearMaster(Gear g) => MasterRow(g.Kind, g.MId);
+
+    // Items made before the Item World existed had a flat Lv cap of 10.
+    public void RepairGear(Player p)
+    {
+        foreach (var g in p.Gear)
+        {
+            var max = LevelAt(MaxStage(g.RarityValue));
+            if (g.LvMax != max) g.LvMax = max;
+        }
     }
 
     // MasterWeaponOrEquipmetBase: price * ((lv + notObey + obey*2) * 0.05 + 1) * (1 + rarity/100).
@@ -200,10 +238,10 @@ public sealed class Shop(MasterData master)
     private static Dictionary<string, object?> GearWire(Player p, Gear g)
     {
         var d = Obj(
-            ("id", g.Id), ("t_player_id", p.Id), ("stage", 0), ("pop", g.Pop), ("rarity_value", g.RarityValue),
+            ("id", g.Id), ("t_player_id", p.Id), ("stage", g.Stage), ("pop", g.Pop), ("rarity_value", g.RarityValue),
             ("remake_count", 0), ("lv", g.Lv), ("lv_max", g.LvMax),
             ("hp", g.Hp), ("atk", g.Atk), ("def", g.Def), ("inte", g.Inte), ("res", g.Res), ("spd", g.Spd),
-            ("set_chara_id", 0UL), ("set_no", 0), ("lock_flg", false), ("all_clear_flg", false), ("breeding_stage", 0),
+            ("set_chara_id", 0UL), ("set_no", 0), ("lock_flg", false), ("all_clear_flg", g.Stage >= MaxStage(g.RarityValue)), ("breeding_stage", 0),
             ("item_world_survey_end_at", ""), ("created_at", g.CreatedAt), ("innocent_auto_obey_flg", false), ("del_flg", false),
             // Client-side caches, built lazily only when null.
             ("m_OtherUserInnocentDatas", SchemaWriter.Nil), ("m_OtherWeaponOrEquipmentEffectDatas", SchemaWriter.Nil));

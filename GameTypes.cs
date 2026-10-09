@@ -196,10 +196,24 @@ public sealed class GameTypes
             catch { continue; }
             if (string.IsNullOrEmpty(method)) continue;
 
-            var result = t.GetNestedType("ResponseData", BindingFlags.Public | BindingFlags.NonPublic)
-                ?.GetField("result", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var result = ResultField(t);
             if (result != null) ResultTypes.TryAdd(method, result.FieldType);
         }
+    }
+
+    // The nested ResponseData may be declared on a base class (ReceiveTrophy : ReceiveTrophyBase),
+    // possibly a generic one (ConnectionTrophyIndex : ConnectionTrophyIndexBase<TrophyData>).
+    private static FieldInfo? ResultField(Type t)
+    {
+        for (var b = t; b != null; b = b.BaseType)
+        {
+            var nested = b.GetNestedType("ResponseData", BindingFlags.Public | BindingFlags.NonPublic);
+            if (nested == null) continue;
+            if (nested.IsGenericTypeDefinition && b.IsGenericType) nested = nested.MakeGenericType(b.GetGenericArguments());
+            var f = nested.GetField("result", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (f != null) return f;
+        }
+        return null;
     }
 
     // Generic calls (PlayerConnectionData(method, ...) + GetData<ResponseData<T>>) only reveal
@@ -261,6 +275,14 @@ public sealed class GameTypes
         L("player/clear_stages", "ClearStageData");
         L("player/stage_missions", "PlayerStageMissionData");
         L("player/innocents", "UserInnocentData");
+
+        // TrophyEngine reads these with GetData<PlayerTrophyResponseData<T>>.
+        void Trophy(string method, string row) =>
+            ResultTypes[method] = Get("Response.PlayerTrophyResponse`1").MakeGenericType(Get(row));
+        Trophy("trophy/index", "TrophyData");
+        Trophy("trophy/dailies", "TrophyDailyData");
+        Trophy("trophy/weeklies", "TrophyWeeklyData");
+        Trophy("trophy/repetitions", "TrophyRepetitionData");
     }
 
     private sealed class ManagedLoadContext(string dir) : AssemblyLoadContext("game", isCollectible: false)

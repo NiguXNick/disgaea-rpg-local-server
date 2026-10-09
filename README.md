@@ -10,8 +10,11 @@ offline, with progress saved on your own PC.
 summons (banners in term, single/10x pulls with the master rates). New players start with
 3,000 free Nether Quartz. Story stages: every stage is open and costs no AP; battles give
 character/rank exp, HL and quartz on every win (5 per difficulty rank plus a tenth of the
-stage exp, +50 on the first clear, +10 per new mission star). Equipment, missions, shop and
-the rest of the game are still being implemented.
+stage exp, +50 on the first clear, +10 per new mission star), enemy drops and bonus gear.
+Also working: the equipment shop, the gift box, missions (beginner sheets, trophies, daily,
+weekly and repeatable ones; rewards arrive in the gift box) and the Item World (levelling
+weapons and equipment floor by floor, without innocents for now). The rest of the game is still
+being implemented, see [docs/todo.md](docs/todo.md).
 
 This repository contains **no game files** (executables, DLLs, assets or master data).
 You need the game installed through Steam.

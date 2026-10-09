@@ -4,9 +4,8 @@
 
 | Feature | Notes |
 |---|---|
-| Gift box (presents) | Mission and event rewards normally arrive here |
-| Missions (daily / weekly / story) | Another quartz source |
-| Item World | Levelling weapons and equipment, innocents |
+| Item World innocents | Floors never have an innocent yet; needs `item_world/persuasion`, `use_bribe_item`, `innocent_dead` and innocent records |
+| Character missions, daily requests (village board) | `trophy/character_missions`, `trophy/daily_requests` still get default answers |
 | Equipping weapons / equipment on characters | |
 | Item shop (`shop/buy_item`) | |
 | Innocents | |

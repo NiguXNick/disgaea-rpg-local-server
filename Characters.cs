@@ -81,7 +81,7 @@ public sealed class Characters(MasterData master)
     }
 
     // Level cap without rebirths (SyncDefineData.rebirth_rise_lv).
-    private const int MaxLevel = 100;
+    internal const int MaxLevel = 100;
 
     // Adds exp and levels up with MCharacterLevel (need_exp of level L = exp to go from L-1 to L);
     // stats are recomputed for the new level. Returns true on level up.

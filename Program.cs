@@ -61,12 +61,13 @@ if (mta >= 0 && mta + 1 < args.Length)
     return;
 }
 
-// --master-rows <table> <field> <value>: print master rows whose field equals value.
+// --master-rows <table> <field> <value> [limit]: print master rows whose field equals value ("*" = any).
 var mr = Array.IndexOf(args, "--master-rows");
 if (mr >= 0 && mr + 3 < args.Length)
 {
     var md = new MasterData(api.Types);
-    foreach (var row in md.All(args[mr + 1]).Where(r => MasterData.F<string>(r, args[mr + 2]) == args[mr + 3]).Take(15))
+    var limit = mr + 4 < args.Length && int.TryParse(args[mr + 4], out var n) ? n : 15;
+    foreach (var row in md.All(args[mr + 1]).Where(r => args[mr + 3] == "*" || MasterData.F<string>(r, args[mr + 2]) == args[mr + 3]).Take(limit))
         Console.WriteLine(string.Join(" ", row.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
             .Where(f => !f.FieldType.IsClass || f.FieldType == typeof(string))
             .Select(f => $"{f.Name}={f.GetValue(row)}")));

@@ -20,7 +20,7 @@ fastest way to see what the client actually received.
 |---|---|
 | `--dump <method> [--prms <json>] [--as <account>]` | Runs one RPC and prints the response as JSON (use a throwaway account: it is modified) |
 | `--master-fields <Type>` | Field order of a master record type |
-| `--master-rows <table> <field> <value>` | Prints master rows where a field equals a value |
+| `--master-rows <table> <field> <value> [limit]` | Prints master rows where a field equals a value (`*` = every row; default limit 15) |
 | `--master-test <file> <Type>` / `--master-test-all <dir>` | Reads master files with the game's own reader |
 | `--master-fix <table>` / `--master-fix-all` | Runs the master upgrade (one table / all) |
 

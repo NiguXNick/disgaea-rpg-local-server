@@ -49,7 +49,26 @@ public sealed class Handlers
         _map["battle/start"] = (p, q) => battle.Start(p, q, "battle/start");
         _map["battle/end"] = (p, q) => battle.End(p, q, "battle/end");
         _map["battle/story"] = (p, q) => battle.Story(p, q, "battle/story");
+        _map["item_world/start"] = (p, q) => battle.ItemWorldStart(p, q, "item_world/start");
         _map["player/abyss_gates"] = (p, q) => Obj(("t_abyss_gates", Array.Empty<object>()));
+
+        var rewards = new Rewards(_master, _chars, _shop);
+        _map["present/index"] = rewards.Index;
+        _map["present/history"] = rewards.History;
+        _map["present/receive"] = rewards.Receive;
+
+        var missions = new Missions(_master, rewards);
+        _map["trophy/beginner_missions"] = missions.BeginnerMissions;
+        _map["trophy/receive_beginner"] = missions.ReceiveBeginner;
+        _map["trophy/index"] = missions.Trophies;
+        _map["trophy/dailies"] = missions.Dailies;
+        _map["trophy/weeklies"] = missions.Weeklies;
+        _map["trophy/repetitions"] = missions.Repetitions;
+        _map["trophy/get_reward"] = missions.RewardTrophy;
+        _map["trophy/get_reward_daily"] = missions.RewardDaily;
+        _map["trophy/get_reward_weekly"] = missions.RewardWeekly;
+        _map["trophy/get_reward_repetition"] = missions.RewardRepetition;
+        _map["player/badge_homes"] = missions.BadgeHomes;
 
         var gacha = new Gacha(_master, _chars);
         _map["gacha/available"] = gacha.Available;
@@ -120,7 +139,11 @@ public sealed class Handlers
 
     public bool TryHandle(string method, Player? p, JsonObject prms, out object? result)
     {
-        if (p != null) RepairCharacters(p);
+        if (p != null)
+        {
+            RepairCharacters(p);
+            _shop.RepairGear(p);
+        }
         if (_map.TryGetValue(method, out var h))
         {
             result = h(p, prms);
@@ -294,17 +317,23 @@ public sealed class Handlers
             ("act", 9999), ("act_max", 9999), ("act_at", now),
             ("character_max", 999), ("weapon_max", 999), ("equipment_max", 999), ("innocent_store_max", 999),
             ("deck_no", p.SelectedDeckNo), ("kingdom_rank", StartKingdomRank),
+            // Mission sheet 0 hides the home mission icon; a date marks the training / Item World
+            // sheets as finished.
+            ("mission_sheet_no", p.MissionSheetNo),
+            ("training_mission_finished_at", p.TrainingMissionFinishedAt),
+            ("item_world_mission_finished_at", p.ItemWorldMissionFinishedAt),
             ("favorite_char_id", leader?.Id ?? 0), ("favorite_m_char_id", leader?.MCharacterId ?? 0),
             ("agenda_confirm_at", now), ("last_free_gacha_at", ""), ("verify_age_date", ""));
     }
 
-    private static Dictionary<string, object?> Record(Player p) => Obj(
+    internal static Dictionary<string, object?> Record(Player p) => Obj(
         ("t_player_id", p.Id), ("play_day_num", 1), ("character_lv_max", 1),
         ("comeback_end_at", ""), ("last_healed_at", ""));
 
     private object? LoginUpdate(Player? p, JsonObject q)
     {
         if (p == null) return null;
+        Progress.LoggedIn(p);
         // Bonus lists must be nil when there's nothing to show: LoginBonusController skips a popup
         // only on null (an empty list opens the 8-day special login bonus window with no data and
         // locks the home screen under its dimmed background).
@@ -312,7 +341,7 @@ public sealed class Handlers
             ("after_t_status", Status(p)),
             ("after_t_record", Record(p)),
             ("after_t_login_bonuses", Nil),
-            ("after_present_count", 0),
+            ("after_present_count", Rewards.PendingCount(p)),
             // Must be a list (even empty): HomeEngine only creates m_FinishedPassportIdList when it
             // isn't null, and PassportAttentionProcess dereferences that list unconditionally.
             ("after_t_passports", Array.Empty<object>()),
@@ -375,6 +404,7 @@ public sealed class Handlers
         p.SelectedDeckNo = I(data, "selectDeckNo", p.SelectedDeckNo);
         if (p.Decks.TryGetValue(p.SelectedDeckNo, out var selected) && selected.Any(x => x != 0))
             p.Deck = selected.Where(x => x != 0).ToList();
+        Progress.Add(p, Progress.Party);
         Log.Info($"Party {p.SelectedDeckNo}: {string.Join(", ", p.Deck)}");
         return Obj();
     }

@@ -51,6 +51,32 @@ public sealed class Player
     public List<ShopItem> ShopItems { get; set; } = new();
     public ulong BattleSeq { get; set; }
 
+    // Item World floor in progress (item_world/start -> battle/end).
+    public ulong ItemWorldGearId { get; set; }
+    public int ItemWorldFloor { get; set; }
+
+    // Gift box: mission/trophy rewards arrive here and are applied when received.
+    public List<Gift> Gifts { get; set; } = new();
+    public ulong NextGiftId { get; set; } = 1;
+
+    // Mission progress counters ("event" or "event:id" -> count), lifetime / today / this week.
+    public Dictionary<string, long> Counters { get; set; } = new();
+    public Dictionary<string, long> DailyCounters { get; set; } = new();
+    public Dictionary<string, long> WeeklyCounters { get; set; } = new();
+    public string DailyKey { get; set; } = "";
+    public string WeeklyKey { get; set; } = "";
+    public string LastLoginDate { get; set; } = "";
+
+    // Received missions/trophies by master id (daily/weekly sets are cleared on reset).
+    public HashSet<ulong> BeginnerReceived { get; set; } = new();
+    public HashSet<ulong> TrophiesReceived { get; set; } = new();
+    public HashSet<ulong> DailyReceived { get; set; } = new();
+    public HashSet<ulong> WeeklyReceived { get; set; } = new();
+    public Dictionary<ulong, long> RepetitionUsed { get; set; } = new(); // progress already turned into rewards
+    public int MissionSheetNo { get; set; } = 1;  // beginner/mastership sheet (0 hides the home icon)
+    public string TrainingMissionFinishedAt { get; set; } = "";
+    public string ItemWorldMissionFinishedAt { get; set; } = "";
+
     public ulong NextCharacterId() => Math.Max(1UL, Characters.Count == 0 ? 0 : Characters.Max(c => c.Id)) + 1;
 
     public OwnedCharacter? Character(ulong id) => Characters.FirstOrDefault(c => c.Id == id);
@@ -67,6 +93,7 @@ public sealed class Gear
     public int Pop { get; set; }
     public int Lv { get; set; } = 1;
     public int LvMax { get; set; } = 10;
+    public int Stage { get; set; } // Item World floors cleared
     public int Hp { get; set; }
     public int Atk { get; set; }
     public int Def { get; set; }
@@ -84,6 +111,19 @@ public sealed class ShopItem
     public int Rarity { get; set; }
     public int Pop { get; set; }
     public bool Sold { get; set; }
+}
+
+public sealed class Gift
+{
+    public ulong Id { get; set; }
+    public int Type { get; set; }       // present_type: 1 item, 2 character, 3 weapon, 4 equipment
+    public ulong PresentId { get; set; }
+    public int Rarity { get; set; }
+    public int Num { get; set; }
+    public string Message { get; set; } = "";
+    public bool Received { get; set; }
+    public string CreatedAt { get; set; } = "";
+    public string ReceivedAt { get; set; } = "";
 }
 
 public sealed class GachaSum

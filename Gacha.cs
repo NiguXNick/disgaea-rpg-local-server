@@ -95,7 +95,12 @@ public sealed class Gacha(MasterData master, Characters chars)
             return null;
         }
 
-        if (!free && itemType == ItemTypeStone) Pay(p, price, MasterData.F<int>(gacha, "price_type") == PriceTypePaidStone);
+        if (!free && itemType == ItemTypeStone)
+        {
+            Pay(p, price, MasterData.F<int>(gacha, "price_type") == PriceTypePaidStone);
+            Progress.Add(p, Progress.StoneSpent, price);
+        }
+        Progress.Add(p, Progress.Gacha, results.Count);
 
         if (!p.GachaSums.TryGetValue(gachaId, out var sum)) p.GachaSums[gachaId] = sum = new GachaSum();
         sum.Sum += results.Count;

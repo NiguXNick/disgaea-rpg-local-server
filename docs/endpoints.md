@@ -44,6 +44,44 @@ Everything not listed gets a well-formed default response (`RPC not implemented`
 | `battle/end` | Character exp from defeated enemies (MCharacterLevel), rank exp = MStage.exp (MPlayerRank), HL ×5, quartz every win (5 × difficulty rank + stage exp / 10, +50 first clear, +10 per new mission star; stars read from the result JWT), drops: 30% per enemy from its MEnemy table + 25% bonus weapon/equipment per win |
 | `battle/story` | Marks story stages cleared; `clear_areas`/`clear_episodes` must be null |
 
+## Item World (`BattleItemWorld.cs`)
+
+| Method | Notes |
+|---|---|
+| `item_world/start` | One floor per battle, floor = item `stage` + 1. `battle_type` must be 5, `m_stage_id` 0, `equipment_id`/`equipment_type` echoed, `stage` = floor (an MItemWorld id). The client has no Item World enemy table: waves are borrowed from a story stage whose `proper_level` is closest below item rank + floor (+20% on boss floors). No innocents yet (`t_innocent_id` 0). |
+| `battle/end` (`battle_type` 5) | Item `stage` = floor, `lv` from MWeaponEquipmentLevel (boss floors jump: floor 30 = Lv50, 60 = Lv100, 100 = Lv180), stats recomputed. Depth by rarity value: 30 / 60 / 100 floors (<40 / <70 / legendary). `after_t_record` must be filled; `after_t_weapon` or `after_t_equipment` carries the item; `obey_innocent`, `remove_t_innocent`, `breeding_t_item`, `stage_mission_after`, `after_t_stage_current` must be null. Quartz: 2 + floor/5, +10 on boss floors. |
+
+## Gift box (`Rewards.cs`)
+
+Mission and trophy rewards are never applied by the client from the mission responses: the
+server puts them in the gift box and applies them on `present/receive`.
+
+| Method | Notes |
+|---|---|
+| `present/index` | Bare `GiftData` list (unreceived), `order` 0 asc / 1 desc, `conditions` filter (0 quartz, 1 characters, 2 gear, 3 HL, 4 AP, 99 other). With `is_limit_notice` (home expiry popup) return an empty list. `delete_at` must parse; gifts never expire offline. `reward_data` is a client cache: null. |
+| `present/history` | Received gifts, newest first, 20 kept |
+| `present/receive` | `received_ids` never null; `present_list`/`history_list` are the full new lists (null would empty them); `items`/`stones` absolute totals; `status` must stay null (an empty one wipes the player's) |
+
+## Missions (`Missions.cs`, `Progress.cs`)
+
+The client never computes progress; it shows the server's `now_num`/`status`. Handlers bump
+counters in `Progress` (summons, battles, enemies, party edits, gifts, shop buys, HL/quartz spent,
+Item World runs/floors, login days); everything else comes from the save (stage clears, mission
+stars, levels, collections). Counters exist for the whole game, today and this week.
+
+| Method | Notes |
+|---|---|
+| `trophy/beginner_missions` | 12 rows of a sheet: `sheet_type` 3 → sheet 31 (training), 4 → 41 (Item World), otherwise the player's `mission_sheet_no` (status field; 0 hides the home icon). `status` is a bool here. |
+| `trophy/receive_beginner` | Reward to the gift box. When all 12 of a sheet are received: the MSheetReward goes to the gift box and `mission_sheet_no` moves on (returning a different number tells the client the sheet is done; `next_mission_datas` must be non-null). Training / Item World sheets set `*_mission_finished_at` instead. |
+| `trophy/index`, `trophy/dailies`, `trophy/weeklies`, `trophy/repetitions` | `PlayerTrophyResponse<T>` (mapped by hand in `GameTypes`). Rows only for masters in term; trophies chain through `next_m_trophy_id` and the next one shows once the previous is received. Status 0 progress / 1 clear / 2 received. Repetition rows keep the progress left over after rewards. |
+| `trophy/get_reward*` | `{id}` or `{receive_all:1}`; only the just-received rows come back (status 2), the other three arrays null |
+| `player/badge_homes` | Gift and mission badge counts. `new_friend` must be an object. |
+
+Offline policy: on the beginner sheets, conditions the server can't observe or features that
+don't exist offline yet (friends, awakening, innocents, skills, level above 100…) count as done,
+otherwise one impossible mission blocks the following sheets. On the trophy tabs they stay at 0.
+Stages cost no AP, so "use AP" missions count 10 AP per won battle.
+
 ## Equipment shop (`Shop.cs`)
 
 | Method | Notes |

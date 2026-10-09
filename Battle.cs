@@ -10,7 +10,7 @@ namespace DrpgServer;
 // rows (a stage is open when the stage in its MStage.appear_m_stage_id is cleared), so every stage
 // is reported as cleared. The player's real progress (clear counts, mission stars) is kept
 // separately and drives first-clear rewards.
-public sealed class Battle(MasterData master, Characters chars, Func<Player, Dictionary<string, object?>> status, GameTypes types, Shop shop)
+public sealed partial class Battle(MasterData master, Characters chars, Func<Player, Dictionary<string, object?>> status, GameTypes types, Shop shop)
 {
     private const int EpisodeTypeMain = 1;      // SyncDefineData.episode_type_main
     private const int BattleTypeNormal = 1;     // battle_type_normal
@@ -106,8 +106,31 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
         if (p == null) return null;
         var stageId = U(q, "m_stage_id");
         var deckNo = I(q, "t_deck_no", 1);
+        var (waves, enemyIds) = Waves(stageId);
 
-        // One enemy group per wave (MStageEnemyGroup, weighted by rate), placed by MEnemyGroupPosition.
+        p.BattleSeq++;
+        Log.Info($"Battle start: stage {stageId}, {waves.Count} waves, {enemyIds.Count} enemy types.");
+        var result = Obj(
+            ("id", p.BattleSeq), ("updated_at", Now), ("t_player_id", p.Id), ("t_deck_no", deckNo),
+            ("battle_type", BattleTypeNormal), ("m_stage_id", stageId),
+            ("enemy_list", waves),
+            ("m_enemies", enemyIds.Select(id => master.Get("MEnemy", id)).ToList()),
+            ("stage_mission", Missions(p, stageId).Select(b => (object)(b ? 1 : 0)).ToArray()),
+            ("t_stage", Obj(("id", stageId), ("t_player_id", p.Id), ("m_stage_id", stageId),
+                ("clear_num", p.StageClears.GetValueOrDefault(stageId)), ("clear_flg", p.StageClears.ContainsKey(stageId)))),
+            ("help_t_player_id", 0), ("help_t_character_id", 0), ("help_t_character_lv", 0),
+            ("m_guest_character_id", U(q, "m_guest_character_id")),
+            // Non-null values here switch the client to raid/event/arena behaviour.
+            ("t_raid_status", SchemaWriter.Nil), ("t_character_ids", SchemaWriter.Nil), ("t_memory_ids", SchemaWriter.Nil),
+            ("t_status", SchemaWriter.Nil), ("t_division_battle_status", SchemaWriter.Nil),
+            ("help_player_character", SchemaWriter.Nil), ("before_params_help_character", SchemaWriter.Nil),
+            ("enemyDataList", SchemaWriter.Nil), ("t_memories", SchemaWriter.Nil));
+        return NilOtherObjects(method, result);
+    }
+
+    // One enemy group per wave (MStageEnemyGroup, weighted by rate), placed by MEnemyGroupPosition.
+    private (List<object?> Waves, HashSet<ulong> EnemyIds) Waves(ulong stageId)
+    {
         var waves = new List<object?>();
         var enemyIds = new HashSet<ulong>();
         var groupsByWave = master.All("MStageEnemyGroup")
@@ -132,25 +155,7 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
             waves.Add(Obj(("pos1", slots[0]), ("pos2", slots[1]), ("pos3", slots[2]), ("pos4", slots[3]), ("pos5", slots[4])));
         }
         if (waves.Count == 0) Log.Warn($"Stage {stageId}: no enemy waves in master.");
-
-        p.BattleSeq++;
-        Log.Info($"Battle start: stage {stageId}, {waves.Count} waves, {enemyIds.Count} enemy types.");
-        var result = Obj(
-            ("id", p.BattleSeq), ("updated_at", Now), ("t_player_id", p.Id), ("t_deck_no", deckNo),
-            ("battle_type", BattleTypeNormal), ("m_stage_id", stageId),
-            ("enemy_list", waves),
-            ("m_enemies", enemyIds.Select(id => master.Get("MEnemy", id)).ToList()),
-            ("stage_mission", Missions(p, stageId).Select(b => (object)(b ? 1 : 0)).ToArray()),
-            ("t_stage", Obj(("id", stageId), ("t_player_id", p.Id), ("m_stage_id", stageId),
-                ("clear_num", p.StageClears.GetValueOrDefault(stageId)), ("clear_flg", p.StageClears.ContainsKey(stageId)))),
-            ("help_t_player_id", 0), ("help_t_character_id", 0), ("help_t_character_lv", 0),
-            ("m_guest_character_id", U(q, "m_guest_character_id")),
-            // Non-null values here switch the client to raid/event/arena behaviour.
-            ("t_raid_status", SchemaWriter.Nil), ("t_character_ids", SchemaWriter.Nil), ("t_memory_ids", SchemaWriter.Nil),
-            ("t_status", SchemaWriter.Nil), ("t_division_battle_status", SchemaWriter.Nil),
-            ("help_player_character", SchemaWriter.Nil), ("before_params_help_character", SchemaWriter.Nil),
-            ("enemyDataList", SchemaWriter.Nil), ("t_memories", SchemaWriter.Nil));
-        return NilOtherObjects(method, result);
+        return (waves, enemyIds);
     }
 
     // ---- Battle end -------------------------------------------------------------------------
@@ -158,20 +163,17 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
     public object? End(Player? p, JsonObject q, string method)
     {
         if (p == null) return null;
+        if (I(q, "battle_type") == BattleTypeItemWorld) return ItemWorldEnd(p, q, method);
         var stageId = U(q, "m_stage_id");
         var win = I(q, "result", 0) == BattleResultWin;
         var stage = master.Get("MStage", stageId);
         var before = Missions(p, stageId).ToArray();
         var deck = p.Deck.Select(p.Character).OfType<OwnedCharacter>().ToList();
 
-        long playerExp = 0, hl = 0, charExp = 0;
+        long playerExp = 0;
         int quartz = 0;
         var after = before.ToArray();
-        var drops = new List<object?>();
-        var droppedCharacters = new List<object?>();
-        var droppedWeapons = new List<object?>();
-        var droppedEquipment = new List<object?>();
-        var changedItems = new HashSet<ulong> { ItemIdHl };
+        var s = new Spoils();
         if (win)
         {
             var first = !p.StageClears.ContainsKey(stageId);
@@ -182,28 +184,20 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
             for (var i = 0; i < 3; i++) after[i] = before[i] || flags[i];
             p.StageMissions[stageId] = after;
 
-            foreach (var kill in (q["battle_exp_data"] as JsonArray ?? []).OfType<JsonObject>())
-            {
-                var enemy = master.Get("MEnemy", U(kill, "m_enemy_id"));
-                if (enemy == null) continue;
-                charExp += MasterData.F<long>(enemy, "exp");
-                var min = MasterData.F<int>(enemy, "drop_point_min");
-                var max = Math.Max(min, MasterData.F<int>(enemy, "drop_point_max"));
-                hl += _rng.Next(min, max + 1) * HlMultiplier;
-                RollDrops(p, enemy, drops, droppedCharacters, droppedWeapons, droppedEquipment, changedItems);
-            }
             playerExp = stage == null ? 0 : MasterData.F<long>(stage, "exp");
-            BonusGearDrop(p, playerExp, drops, droppedWeapons, droppedEquipment);
+            Defeated(p, q, s);
+            BonusGearDrop(p, playerExp, s.Drops, s.Weapons, s.Equipment);
             var rank = stage == null ? 1 : Math.Max(1, MasterData.F<int>(stage, "rank"));
             quartz = (int)(QuartzPerRank * rank + playerExp / StageExpPerQuartz)
                      + (first ? FirstClearQuartz : 0)
                      + MissionStarQuartz * Enumerable.Range(0, 3).Count(i => after[i] && !before[i]);
+            if (stage != null) Progress.Add(p, Progress.AreaBattle, 1, MasterData.F<ulong>(stage, "m_area_id"));
 
-            foreach (var c in deck) chars.AddExp(c, charExp);
+            foreach (var c in deck) chars.AddExp(c, s.CharExp);
             AddPlayerExp(p, playerExp);
-            p.Items[ItemIdHl] = p.Items.GetValueOrDefault(ItemIdHl) + hl;
+            p.Items[ItemIdHl] = p.Items.GetValueOrDefault(ItemIdHl) + s.Hl;
             p.FreeStone += quartz;
-            Log.Info($"Battle won: stage {stageId}{(first ? " (first clear)" : "")}, +{charExp} exp each, +{playerExp} rank exp, +{hl} HL, +{quartz} quartz, {drops.Count} drops.");
+            Log.Info($"Battle won: stage {stageId}{(first ? " (first clear)" : "")}, +{s.CharExp} exp each, +{playerExp} rank exp, +{s.Hl} HL, +{quartz} quartz, {s.Drops.Count} drops.");
         }
         else
         {
@@ -218,20 +212,48 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
             ("stage_mission_after", after.Select(b => (object)(b ? 1 : 0)).ToArray()),
             ("player_exp", playerExp),
             ("after_t_status", status(p)),
-            ("drop_result", Obj(
-                ("drop_list", (hl > 0 ? new List<object?> { Obj(("id", ItemIdHl), ("num", (int)Math.Min(hl, int.MaxValue)), ("type", PresentTypeItem), ("rank", 0), ("rarity", 0)) } : new List<object?>()).Concat(drops).ToList()),
-                ("after_t_item", changedItems.Select(id => (object?)ItemRow(p, id)).ToList()),
-                ("drop_character", droppedCharacters),
-                ("drop_weapon", droppedWeapons.Count > 0 ? Obj(("weapons", droppedWeapons), ("weapon_innocents", Obj(("t_innocents", Array.Empty<object>())))) : SchemaWriter.Nil),
-                ("drop_equipment", droppedEquipment.Count > 0 ? Obj(("equipments", droppedEquipment), ("equipment_innocents", Obj(("t_innocents", Array.Empty<object>())))) : SchemaWriter.Nil),
-                ("stones", StoneRows(p)))),
-            ("after_t_items", changedItems.Select(id => (object?)ItemRow(p, id)).ToList()),
+            ("drop_result", DropResult(p, s)),
+            ("after_t_items", s.ChangedItems.Select(id => (object?)ItemRow(p, id)).ToList()),
             ("learning_commands", Array.Empty<object>()),
             ("m_guest_character_id", U(q, "m_guest_character_id")),
             ("clear_m_area_id", 0), ("clear_m_episode_id", 0), ("clear_stage_rank", 0),
             ("help_player", SchemaWriter.Nil));
         return NilOtherObjects(method, result);
     }
+
+    // What a won battle yields from its defeated enemies (battle_exp_data lists one entry per kill).
+    private sealed class Spoils
+    {
+        public long CharExp, Hl;
+        public readonly List<object?> Drops = new(), Characters = new(), Weapons = new(), Equipment = new();
+        public readonly HashSet<ulong> ChangedItems = new() { ItemIdHl };
+    }
+
+    private void Defeated(Player p, JsonObject q, Spoils s)
+    {
+        var kills = (q["battle_exp_data"] as JsonArray ?? []).OfType<JsonObject>().ToList();
+        foreach (var kill in kills)
+        {
+            var enemy = master.Get("MEnemy", U(kill, "m_enemy_id"));
+            if (enemy == null) continue;
+            s.CharExp += MasterData.F<long>(enemy, "exp");
+            var min = MasterData.F<int>(enemy, "drop_point_min");
+            var max = Math.Max(min, MasterData.F<int>(enemy, "drop_point_max"));
+            s.Hl += _rng.Next(min, max + 1) * HlMultiplier;
+            RollDrops(p, enemy, s.Drops, s.Characters, s.Weapons, s.Equipment, s.ChangedItems);
+        }
+        Progress.Add(p, Progress.Battle);
+        Progress.Add(p, Progress.Enemy, kills.Count);
+        Progress.Add(p, Progress.Act, DrpgServer.Missions.ActPerBattle);
+    }
+
+    private static Dictionary<string, object?> DropResult(Player p, Spoils s) => Obj(
+        ("drop_list", (s.Hl > 0 ? new List<object?> { Obj(("id", ItemIdHl), ("num", (int)Math.Min(s.Hl, int.MaxValue)), ("type", PresentTypeItem), ("rank", 0), ("rarity", 0)) } : new List<object?>()).Concat(s.Drops).ToList()),
+        ("after_t_item", s.ChangedItems.Select(id => (object?)ItemRow(p, id)).ToList()),
+        ("drop_character", s.Characters),
+        ("drop_weapon", s.Weapons.Count > 0 ? Obj(("weapons", s.Weapons), ("weapon_innocents", Obj(("t_innocents", Array.Empty<object>())))) : SchemaWriter.Nil),
+        ("drop_equipment", s.Equipment.Count > 0 ? Obj(("equipments", s.Equipment), ("equipment_innocents", Obj(("t_innocents", Array.Empty<object>())))) : SchemaWriter.Nil),
+        ("stones", StoneRows(p)));
 
     // Few enemy tables contain weapons/equipment, so offline every win has a chance of one extra
     // piece of gear, its item rank scaled by how hard the stage is (sqrt of the stage exp).
