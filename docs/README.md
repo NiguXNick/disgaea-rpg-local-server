@@ -1,7 +1,7 @@
-# Developer documentation
+# Netherworld Reborn: developer documentation
 
-These documents explain how the DISGAEA RPG client talks to its server and how this local
-server reproduces it, so anyone can continue the work.
+These documents explain how the DISGAEA RPG client talks to its server and how Netherworld
+Reborn reproduces it, so anyone can continue the work.
 
 | Document | What it covers |
 |---|---|

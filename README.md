@@ -1,6 +1,8 @@
-# Disgaea RPG local (offline) server
+# Netherworld Reborn
 
-A local replacement server for the global Steam release of **DISGAEA RPG**, whose official
+*The Netherworld never closes, dood!*
+
+**Netherworld Reborn** is a local replacement server for the global Steam release of **DISGAEA RPG**, whose official
 servers (Boltrend) shut down on 2023-05-12. With it the game boots again and can be played
 offline, with progress saved on your own PC.
 

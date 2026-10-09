@@ -97,7 +97,7 @@ app.UseRouting();
 BootFiles.Map(app, config, masterFix);
 app.MapFallback(async (HttpContext ctx) => await api.Handle(ctx));
 
-Log.Info($"Disgaea RPG server listening on {config.BaseUrl}");
+Log.Info($"Netherworld Reborn listening on {config.BaseUrl}");
 Log.Info($"Game folder: {config.GameDir}");
 Log.Info($"Save data: {config.DataDir}");
 app.Run();
