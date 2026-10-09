@@ -1,4 +1,4 @@
-# Disgaea RPG — local (offline) server
+# Disgaea RPG local (offline) server
 
 A local replacement server for the global Steam release of **DISGAEA RPG**, whose official
 servers (Boltrend) shut down on 2023-05-12. With it the game boots again and can be played
@@ -6,9 +6,10 @@ offline, with progress saved on your own PC.
 
 **Status: work in progress.** Working: boot, login, the full tutorial, the home screen and
 summons (banners in term, single/10x pulls with the master rates). New players start with
-3,000 free Nether Quartz. Story stages: every stage is open, battles give character/rank exp,
-HL and quartz (+50 first clear, +10 per new mission star); stages cost no AP. Equipment,
-missions, shop and the rest of the game are still being implemented.
+3,000 free Nether Quartz. Story stages: every stage is open and costs no AP; battles give
+character/rank exp, HL and quartz on every win (5 per difficulty rank plus a tenth of the
+stage exp, +50 on the first clear, +10 per new mission star). Equipment, missions, shop and
+the rest of the game are still being implemented.
 
 This repository contains **no game files** (executables, DLLs, assets or master data).
 You need the game installed through Steam.
@@ -16,7 +17,7 @@ You need the game installed through Steam.
 ## Requirements
 
 - Windows, with DISGAEA RPG installed through Steam
-- Steam running (offline mode is fine) — the game quits at startup without it
+- Steam running (offline mode is fine); the game quits at startup without it
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 
 ## Usage
@@ -34,8 +35,9 @@ You need the game installed through Steam.
    ```
    Options: `--port 8765`, `--game "<game folder>"`, `--data "<save folder>"`.
 
-3. **Launch the game from Steam.** On the login window type any account name — it only picks
-   which save to use (the password is ignored). The game remembers the last account.
+3. **Launch the game from Steam.** On the login window type any account name: it only picks
+   which save to use (the password is ignored). Fill in some password too, so the game
+   remembers the account and fills the window in next time.
 
 To undo everything: `powershell -ExecutionPolicy Bypass -File tools\restore-game.ps1`.
 

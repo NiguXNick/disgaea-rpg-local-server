@@ -17,6 +17,11 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
     private const int BattleResultWin = 1;      // battle_result_win
     private const ulong ItemIdHl = 101;         // item_id_point
     private const int PresentTypeItem = 1;      // present_type_item
+    // Quartz is earned on every win, more on harder stages: 5 per difficulty rank (MStage.rank:
+    // 1 easy, 2 normal, 3 hard…) plus a tenth of the stage's exp, which grows along the story.
+    // First clears and new mission stars add a bonus.
+    private const int QuartzPerRank = 5;
+    private const int StageExpPerQuartz = 10;
     private const int FirstClearQuartz = 50;
     private const int MissionStarQuartz = 10;
 
@@ -178,7 +183,10 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
                 hl += _rng.Next(min, max + 1);
             }
             playerExp = stage == null ? 0 : MasterData.F<long>(stage, "exp");
-            quartz = (first ? FirstClearQuartz : 0) + MissionStarQuartz * Enumerable.Range(0, 3).Count(i => after[i] && !before[i]);
+            var rank = stage == null ? 1 : Math.Max(1, MasterData.F<int>(stage, "rank"));
+            quartz = (int)(QuartzPerRank * rank + playerExp / StageExpPerQuartz)
+                     + (first ? FirstClearQuartz : 0)
+                     + MissionStarQuartz * Enumerable.Range(0, 3).Count(i => after[i] && !before[i]);
 
             foreach (var c in deck) chars.AddExp(c, charExp);
             AddPlayerExp(p, playerExp);
