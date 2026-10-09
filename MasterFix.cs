@@ -173,9 +173,12 @@ public sealed class MasterFix
         }
         else
         {
-            // Cheapest explanations first: one edit, then a block appended at the end of the class
-            // plus up to two in the middle, then 2-3 arbitrary edits.
-            candidates = Candidates(types, 1, 1).Concat(TailCandidates(types)).Concat(Candidates(types, 2, MaxEdits));
+            // Most likely first: fields appended at the end of the class (a pure tail), then one
+            // edit anywhere, then a tail plus up to two in the middle, then 2-3 arbitrary edits.
+            // Order matters when sizes coincide: MGachaGroupItem lacks max_level+level (2 ints at
+            // the end), which a single missing ulong item_id in the middle would also fit.
+            candidates = TailCandidates(types, maxInner: 0).Concat(Candidates(types, 1, 1))
+                .Concat(TailCandidates(types, maxInner: 2)).Concat(Candidates(types, 2, MaxEdits));
         }
 
         var clock = System.Diagnostics.Stopwatch.StartNew();
@@ -229,12 +232,12 @@ public sealed class MasterFix
         }
     }
 
-    private static IEnumerable<Slot[]> TailCandidates(Type[] types)
+    private static IEnumerable<Slot[]> TailCandidates(Type[] types, int maxInner)
     {
         for (var tail = 1; tail < types.Length; tail++)
         {
             var tailFields = Enumerable.Range(types.Length - tail, tail).ToArray();
-            for (var k = 0; k <= 2; k++)
+            for (var k = 0; k <= maxInner; k++)
                 foreach (var inner in Combinations(types.Length - tail, k))
                     yield return Layouts(types, inner.Concat(tailFields).ToArray(), 0).First();
         }

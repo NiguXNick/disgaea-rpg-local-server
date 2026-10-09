@@ -127,12 +127,15 @@ public sealed class ApiRouter
         return buffer.WrittenSpan.ToArray();
     }
 
-    public string DumpDefault(string method)
+    // account: run as that save (it gets modified, so use a throwaway account).
+    public string DumpDefault(string method, string prms = "{}", string? account = null)
     {
+        var session = "";
+        if (account != null) session = _players.OpenSession(_players.Login(account, "").Player);
         var bytes = Rpc(new Dictionary<object, object?>
         {
-            ["rpc"] = new Dictionary<object, object?> { ["method"] = method, ["id"] = "dump", ["prms"] = "{}" },
-        }, "");
+            ["rpc"] = new Dictionary<object, object?> { ["method"] = method, ["id"] = "dump", ["prms"] = prms },
+        }, session);
         var json = MessagePackSerializer.ConvertToJson(bytes);
         return $"{method}: {bytes.Length} bytes\n{(json.Length > 3000 ? json[..3000] + "..." : json)}";
     }

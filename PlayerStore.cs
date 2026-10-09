@@ -16,8 +16,28 @@ public sealed class Player
     public List<ulong> Deck { get; set; } = new(); // t_character ids of deck 1, leader first
     public int GachaRarity { get; set; }
 
+    // Nether Quartz: a starting amount (enough for one 10x summon); the rest is earned in game.
+    // Paid quartz was the real-money currency and starts at zero.
+    public long FreeStone { get; set; } = 3_000;
+    public long PaidStone { get; set; }
+    public long FreeStoneUsed { get; set; }
+    public long PaidStoneUsed { get; set; }
+
+    public Dictionary<ulong, GachaSum> GachaSums { get; set; } = new();
+
+    public ulong NextCharacterId() => Math.Max(1UL, Characters.Count == 0 ? 0 : Characters.Max(c => c.Id)) + 1;
+
     public OwnedCharacter? Character(ulong id) => Characters.FirstOrDefault(c => c.Id == id);
     public string PublicId => (100000000 + Id).ToString();
+}
+
+public sealed class GachaSum
+{
+    public long Sum { get; set; }
+    public long CountBonusDrawCount { get; set; }
+    public long SeriesDrawCount { get; set; }
+    public long TotalDrawCount { get; set; }
+    public string LastDrawAt { get; set; } = "";
 }
 
 // One JSON file per account under the save folder.

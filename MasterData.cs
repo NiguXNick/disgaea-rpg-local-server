@@ -34,6 +34,27 @@ public sealed class MasterData
         throw new MissingFieldException(row.GetType().Name, field);
     }
 
+    public static T[] A<T>(object row, string field)
+    {
+        for (var t = row.GetType(); t != null; t = t.BaseType)
+        {
+            var f = t.GetField(field, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+            if (f != null)
+                return f.GetValue(row) is Array arr
+                    ? arr.Cast<object>().Select(x => (T)Convert.ChangeType(x, typeof(T))).ToArray()
+                    : [];
+        }
+        throw new MissingFieldException(row.GetType().Name, field);
+    }
+
+    // Master dates are "yyyy-MM-dd HH:mm:ss"; the client checks open <= now < close.
+    public static bool InTerm(object row, DateTime now)
+    {
+        var open = F<string>(row, "open_at");
+        var close = F<string>(row, "close_at");
+        return DateTime.TryParse(open, out var o) && DateTime.TryParse(close, out var c) && o <= now && now < c;
+    }
+
     private void Load(string table)
     {
         lock (_rows)

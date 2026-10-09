@@ -137,6 +137,9 @@ public static class SchemaWriter
     {
         if (depth >= MaxEmptyFillDepth || NeedsValue(t) || t.IsValueType || t.IsAbstract || !t.IsClass) return false;
         if (t.Assembly.GetName().Name != "Assembly-CSharp") return false;
+        // Master records referenced from user data (CharacterUserData.m_character_data) are
+        // client-side lookups; an empty one would shadow the real master row.
+        if (t.Name.StartsWith("Master") || t.Name.StartsWith("Boltrend")) return false;
         if (typeof(Delegate).IsAssignableFrom(t)) return false;
         for (var b = t; b != null; b = b.BaseType)
             if (b.FullName == "UnityEngine.Object") return false;

@@ -61,11 +61,25 @@ if (mta >= 0 && mta + 1 < args.Length)
     return;
 }
 
+// --master-rows <table> <field> <value>: print master rows whose field equals value.
+var mr = Array.IndexOf(args, "--master-rows");
+if (mr >= 0 && mr + 3 < args.Length)
+{
+    var md = new MasterData(api.Types);
+    foreach (var row in md.All(args[mr + 1]).Where(r => MasterData.F<string>(r, args[mr + 2]) == args[mr + 3]).Take(15))
+        Console.WriteLine(string.Join(" ", row.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
+            .Where(f => !f.FieldType.IsClass || f.FieldType == typeof(string))
+            .Select(f => $"{f.Name}={f.GetValue(row)}")));
+    return;
+}
+
 // --dump <method>: print the default response for an RPC method and exit (schema check).
 var dump = Array.IndexOf(args, "--dump");
 if (dump >= 0 && dump + 1 < args.Length)
 {
-    Console.WriteLine(api.DumpDefault(args[dump + 1]));
+    // --dump <method> [--prms <json>] [--as <account>]
+    string? Opt(string name) { var i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
+    Console.WriteLine(api.DumpDefault(args[dump + 1], Opt("--prms") ?? "{}", Opt("--as")));
     return;
 }
 

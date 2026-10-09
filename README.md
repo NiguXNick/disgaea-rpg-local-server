@@ -4,8 +4,10 @@ A local replacement server for the global Steam release of **DISGAEA RPG**, whos
 servers (Boltrend) shut down on 2023-05-12. With it the game boots again and can be played
 offline, with progress saved on your own PC.
 
-**Status: work in progress.** Working: boot, login, the full tutorial and loading the home
-screen. Stages, gacha, equipment and the rest of the game are still being implemented.
+**Status: work in progress.** Working: boot, login, the full tutorial, the home screen and
+summons (banners in term, single/10x pulls with the master rates). New players start with
+3,000 free Nether Quartz. Stages, equipment, missions and the rest of the game are still being
+implemented.
 
 This repository contains **no game files** (executables, DLLs, assets or master data).
 You need the game installed through Steam.

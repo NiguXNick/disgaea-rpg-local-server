@@ -28,6 +28,12 @@ public sealed class Handlers
         _map["battle/status"] = (p, q) => Nil;
         _map["player/sync"] = (p, q) => Array.Empty<object>();
 
+        var gacha = new Gacha(_master, _chars);
+        _map["gacha/available"] = gacha.Available;
+        _map["gacha/sums"] = gacha.Sums;
+        _map["gacha/do"] = gacha.Do;
+        _map["player/stone_sum"] = gacha.StoneSum;
+
         _map["player/tutorial"] = Tutorial;
         _map["player/tutorial_gacha_single"] = TutorialGachaSingle;
         _map["player/tutorial_choice_characters"] = (p, q) => Obj(("character_user_datas",
@@ -276,6 +282,6 @@ public sealed class Handlers
         };
     }
 
-    private static Dictionary<string, object?> Obj(params (string Key, object? Value)[] kv) =>
+    internal static Dictionary<string, object?> Obj(params (string Key, object? Value)[] kv) =>
         kv.ToDictionary(x => x.Key, x => x.Value);
 }
