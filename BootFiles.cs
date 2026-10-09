@@ -53,6 +53,10 @@ public static class BootFiles
             return Results.NotFound();
         });
         app.MapGet("/file/{**rest}", () => Results.NotFound());
+
+        // Remote pictures (news/event banners) lived only on Boltrend's CDN. A failed download
+        // leaves the home screen's loading indicator up, so hand out a transparent placeholder.
+        app.MapGet("/asset/rpr/{**rest}", () => Results.Bytes(PlaceholderPng, "image/png"));
         app.MapGet("/zip/{**rest}", () => Results.NotFound());
     }
 
@@ -78,4 +82,8 @@ public static class BootFiles
     }
 
     private static IResult Text(string s) => Results.Text(s, "text/plain");
+
+    // 1x1 transparent PNG.
+    private static readonly byte[] PlaceholderPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==");
 }
