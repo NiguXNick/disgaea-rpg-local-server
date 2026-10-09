@@ -42,12 +42,48 @@ public sealed class Player
     public Dictionary<ulong, bool[]> StageMissions { get; set; } = new();
     public ulong CurrentStage { get; set; }
     public HashSet<ulong> SubTutorialsRead { get; set; } = new();
+
+    public List<Gear> Gear { get; set; } = new();
+    public ulong NextGearId { get; set; } = 1;
+    public string ShopLineupDate { get; set; } = "";
+    public int ShopLineupNo { get; set; }
+    public int ShopUpdateNum { get; set; }
+    public List<ShopItem> ShopItems { get; set; } = new();
     public ulong BattleSeq { get; set; }
 
     public ulong NextCharacterId() => Math.Max(1UL, Characters.Count == 0 ? 0 : Characters.Max(c => c.Id)) + 1;
 
     public OwnedCharacter? Character(ulong id) => Characters.FirstOrDefault(c => c.Id == id);
     public string PublicId => (100000000 + Id).ToString();
+}
+
+// An owned weapon (Kind 3) or piece of equipment (Kind 4).
+public sealed class Gear
+{
+    public ulong Id { get; set; }
+    public int Kind { get; set; }
+    public ulong MId { get; set; }
+    public int RarityValue { get; set; }
+    public int Pop { get; set; }
+    public int Lv { get; set; } = 1;
+    public int LvMax { get; set; } = 10;
+    public int Hp { get; set; }
+    public int Atk { get; set; }
+    public int Def { get; set; }
+    public int Inte { get; set; }
+    public int Res { get; set; }
+    public int Spd { get; set; }
+    public string CreatedAt { get; set; } = "";
+}
+
+public sealed class ShopItem
+{
+    public ulong Id { get; set; }
+    public int ItemType { get; set; }
+    public ulong ItemId { get; set; }
+    public int Rarity { get; set; }
+    public int Pop { get; set; }
+    public bool Sold { get; set; }
 }
 
 public sealed class GachaSum

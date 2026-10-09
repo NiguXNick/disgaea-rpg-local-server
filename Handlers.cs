@@ -16,6 +16,7 @@ public sealed class Handlers
 
     private readonly Characters _chars;
     private readonly MasterData _master;
+    private readonly Shop _shop;
     private readonly Dictionary<string, Func<Player?, JsonObject, object?>> _map = new();
 
     public Handlers(GameTypes types, PlayerStore players)
@@ -27,6 +28,16 @@ public sealed class Handlers
         _map["app/constants"] = (p, q) => null; // SyncDefineData defaults come from the class itself
         _map["battle/status"] = (p, q) => Nil;
         _map["battle/reset"] = (p, q) => Obj();
+
+        _shop = new Shop(_master);
+        _map["shop/index"] = _shop.Index;
+        _map["shop/equipment_shop"] = _shop.EquipmentShop;
+        _map["shop/equipment_items"] = _shop.EquipmentItems;
+        _map["shop/change_equipment_items"] = _shop.Renew;
+        _map["shop/buy_equipment"] = _shop.Buy;
+        _map["shop/sell_equipment"] = _shop.Sell;
+        _map["player/weapons"] = _shop.Weapons;
+        _map["player/equipments"] = _shop.Equipments;
 
         var battle = new Battle(_master, _chars, Status, types);
         _map["player/sync"] = battle.Sync;
@@ -277,7 +288,7 @@ public sealed class Handlers
         var now = Time.Format(DateTime.UtcNow);
         return Obj(
             ("id", p.Id), ("t_player_id", p.Id), ("rank", p.Rank), ("exp", p.RankExp), ("exp_total", p.RankExpTotal),
-            ("shop_rank", 1), ("survey_rank", 1u),
+            ("shop_rank", _shop.MaxShopRank), ("survey_rank", 1u),
             // Offline: AP is always full at the game's cap (stages cost 0 AP anyway, see MasterFix)
             // and boxes are at their maximum size (SyncDefineData *_space_max).
             ("act", 9999), ("act_max", 9999), ("act_at", now),
