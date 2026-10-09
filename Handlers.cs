@@ -38,6 +38,19 @@ public sealed class Handlers
         _map["player/characters"] = (p, q) => p?.Characters.Select(c => (object?)Characters.ToWire(c, p.Id)).ToList();
         _map["player/decks"] = Decks;
         _map["login/update"] = LoginUpdate;
+        // Today's free bingo already drawn: the login bingo skips its lottery animation and the
+        // home screen's popup chain continues (see MasterFix.AddMissingTables).
+        _map["bingo/index"] = (p, q) => Obj(
+            ("t_bingo_data", Obj(
+                ("id", 1UL),
+                ("date", DateTime.UtcNow.ToString("yyyy-MM-dd")),
+                ("last_lottery_at", Time.Format(DateTime.UtcNow)),
+                ("drew_today", true),
+                ("display_numbers", Array.Empty<object>()),
+                ("bingo_indexes", Array.Empty<object>()),
+                ("max_draw_count", 1))),
+            ("rewards", Array.Empty<object>()),
+            ("after_stone_sum", Nil));
         // One entry per owned character. PlayerManager.GetCharaMissionFromApi starts a loading
         // indicator and only clears it after one trophy/character_missions request per batch of
         // collection entries; with an empty collection no request is made and it never clears.

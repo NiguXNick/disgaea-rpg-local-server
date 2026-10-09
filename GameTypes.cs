@@ -137,6 +137,16 @@ public sealed class GameTypes
         return sb.ToString();
     }
 
+    // Writes master table rows with the game's own serializer (SerializeBinary.Deserialize is its writer).
+    public byte[] WriteMasterBin(Array rows)
+    {
+        var writer = Xd.GetType("XD.Serialize.SerializeBinary")!
+            .GetMethod("Deserialize", BindingFlags.Public | BindingFlags.Static, [typeof(object), typeof(Type), typeof(Stream)])!;
+        using var ms = new MemoryStream();
+        writer.Invoke(null, [rows, Unity.GetType("UnityEngine.SerializeField")!, ms]);
+        return ms.ToArray();
+    }
+
     public Type ListOf(string elementName) => typeof(List<>).MakeGenericType(Get(elementName));
     public Type ArrayOf(string elementName) => Get(elementName).MakeArrayType();
 

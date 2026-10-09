@@ -80,6 +80,56 @@ public sealed class MasterFix
             }
             if (fixedCount > 0 || failed > 0)
                 Log.Info($"Master data: {fixedCount} files upgraded, {failed} could not be fixed automatically.");
+            AddMissingTables();
+        }
+    }
+
+    // Tables the live server's master had but the shipped one lacks entirely.
+    // MBingoGroup: with no bingo group in term, BingoController.SetUpAndLoginPlay calls its
+    // completion callback before the bingo object exists and crashes, which stops the home
+    // screen's post-login popup chain under a dimmed background. One always-open group (with the
+    // server answering bingo/index as "already drawn today") lets the chain finish.
+    private void AddMissingTables()
+    {
+        var flist = Path.Combine(Dir, "flist");
+        if (!File.Exists(flist)) return;
+        if (!_tables.TryGetValue("MBingoGroup", out var bingoType)) return;
+
+        var file = Path.Combine(Dir, "MBingoGroup_1.bin");
+        if (!File.Exists(file))
+        {
+            var row = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(bingoType);
+            void Set(string name, object value)
+            {
+                for (var t = bingoType; t != null; t = t.BaseType)
+                {
+                    var f = t.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                    if (f != null) { f.SetValue(row, value); return; }
+                }
+            }
+            Set("id", 1UL);
+            Set("rotation_type", 1);
+            Set("cell_number", 9);
+            Set("m_product_id", 0UL);
+            Set("open_at", "2020-01-01 00:00:00");
+            Set("close_at", "2099-12-31 23:59:59");
+            var rows = Array.CreateInstance(bingoType, 1);
+            rows.SetValue(row, 0);
+            var bytes = _types.WriteMasterBin(rows);
+            if (!_types.ReadsMasterBin(bytes, bingoType))
+            {
+                Log.Warn("Could not build MBingoGroup_1.bin.");
+                return;
+            }
+            File.WriteAllBytes(file, bytes);
+            Log.Info("Master data: added an always-open bingo group (MBingoGroup_1.bin).");
+        }
+
+        var lines = File.ReadAllLines(flist).ToList();
+        if (!lines.Contains("MBingoGroup_1.bin"))
+        {
+            lines.Add("MBingoGroup_1.bin");
+            File.WriteAllLines(flist, lines);
         }
     }
 
