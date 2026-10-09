@@ -10,7 +10,7 @@ namespace DrpgServer;
 // rows (a stage is open when the stage in its MStage.appear_m_stage_id is cleared), so every stage
 // is reported as cleared. The player's real progress (clear counts, mission stars) is kept
 // separately and drives first-clear rewards.
-public sealed class Battle(MasterData master, Characters chars, Func<Player, Dictionary<string, object?>> status, GameTypes types)
+public sealed class Battle(MasterData master, Characters chars, Func<Player, Dictionary<string, object?>> status, GameTypes types, Shop shop)
 {
     private const int EpisodeTypeMain = 1;      // SyncDefineData.episode_type_main
     private const int BattleTypeNormal = 1;     // battle_type_normal
@@ -24,6 +24,10 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
     private const int StageExpPerQuartz = 10;
     private const int FirstClearQuartz = 50;
     private const int MissionStarQuartz = 10;
+    // Offline HL is boosted so the shop is usable at the original prices.
+    private const int HlMultiplier = 5;
+    private const int PresentTypeCharacter = 2, PresentTypeWeapon = 3, PresentTypeEquipment = 4;
+    private const double DropChance = 0.3;
 
     private readonly Random _rng = new();
     private static string Now => Time.Format(DateTime.UtcNow);
@@ -163,6 +167,11 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
         long playerExp = 0, hl = 0, charExp = 0;
         int quartz = 0;
         var after = before.ToArray();
+        var drops = new List<object?>();
+        var droppedCharacters = new List<object?>();
+        var droppedWeapons = new List<object?>();
+        var droppedEquipment = new List<object?>();
+        var changedItems = new HashSet<ulong> { ItemIdHl };
         if (win)
         {
             var first = !p.StageClears.ContainsKey(stageId);
@@ -180,9 +189,11 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
                 charExp += MasterData.F<long>(enemy, "exp");
                 var min = MasterData.F<int>(enemy, "drop_point_min");
                 var max = Math.Max(min, MasterData.F<int>(enemy, "drop_point_max"));
-                hl += _rng.Next(min, max + 1);
+                hl += _rng.Next(min, max + 1) * HlMultiplier;
+                RollDrops(p, enemy, drops, droppedCharacters, droppedWeapons, droppedEquipment, changedItems);
             }
             playerExp = stage == null ? 0 : MasterData.F<long>(stage, "exp");
+            BonusGearDrop(p, playerExp, drops, droppedWeapons, droppedEquipment);
             var rank = stage == null ? 1 : Math.Max(1, MasterData.F<int>(stage, "rank"));
             quartz = (int)(QuartzPerRank * rank + playerExp / StageExpPerQuartz)
                      + (first ? FirstClearQuartz : 0)
@@ -192,7 +203,7 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
             AddPlayerExp(p, playerExp);
             p.Items[ItemIdHl] = p.Items.GetValueOrDefault(ItemIdHl) + hl;
             p.FreeStone += quartz;
-            Log.Info($"Battle won: stage {stageId}{(first ? " (first clear)" : "")}, +{charExp} exp each, +{playerExp} rank exp, +{hl} HL, +{quartz} quartz.");
+            Log.Info($"Battle won: stage {stageId}{(first ? " (first clear)" : "")}, +{charExp} exp each, +{playerExp} rank exp, +{hl} HL, +{quartz} quartz, {drops.Count} drops.");
         }
         else
         {
@@ -208,17 +219,94 @@ public sealed class Battle(MasterData master, Characters chars, Func<Player, Dic
             ("player_exp", playerExp),
             ("after_t_status", status(p)),
             ("drop_result", Obj(
-                ("drop_list", hl > 0 ? new List<object?> { Obj(("id", ItemIdHl), ("num", (int)Math.Min(hl, int.MaxValue)), ("type", PresentTypeItem), ("rank", 0), ("rarity", 0)) } : new List<object?>()),
-                ("after_t_item", new List<object?> { ItemRow(p, ItemIdHl) }),
-                ("drop_character", Array.Empty<object>()),
-                ("drop_weapon", SchemaWriter.Nil), ("drop_equipment", SchemaWriter.Nil),
+                ("drop_list", (hl > 0 ? new List<object?> { Obj(("id", ItemIdHl), ("num", (int)Math.Min(hl, int.MaxValue)), ("type", PresentTypeItem), ("rank", 0), ("rarity", 0)) } : new List<object?>()).Concat(drops).ToList()),
+                ("after_t_item", changedItems.Select(id => (object?)ItemRow(p, id)).ToList()),
+                ("drop_character", droppedCharacters),
+                ("drop_weapon", droppedWeapons.Count > 0 ? Obj(("weapons", droppedWeapons), ("weapon_innocents", Obj(("t_innocents", Array.Empty<object>())))) : SchemaWriter.Nil),
+                ("drop_equipment", droppedEquipment.Count > 0 ? Obj(("equipments", droppedEquipment), ("equipment_innocents", Obj(("t_innocents", Array.Empty<object>())))) : SchemaWriter.Nil),
                 ("stones", StoneRows(p)))),
-            ("after_t_items", new List<object?> { ItemRow(p, ItemIdHl) }),
+            ("after_t_items", changedItems.Select(id => (object?)ItemRow(p, id)).ToList()),
             ("learning_commands", Array.Empty<object>()),
             ("m_guest_character_id", U(q, "m_guest_character_id")),
             ("clear_m_area_id", 0), ("clear_m_episode_id", 0), ("clear_stage_rank", 0),
             ("help_player", SchemaWriter.Nil));
         return NilOtherObjects(method, result);
+    }
+
+    // Few enemy tables contain weapons/equipment, so offline every win has a chance of one extra
+    // piece of gear, its item rank scaled by how hard the stage is (sqrt of the stage exp).
+    private const double BonusGearChance = 0.25;
+
+    private void BonusGearDrop(Player p, long stageExp, List<object?> drops, List<object?> weapons, List<object?> equipment)
+    {
+        if (_rng.NextDouble() >= BonusGearChance) return;
+        var kind = _rng.Next(2) == 0 ? PresentTypeWeapon : PresentTypeEquipment;
+        var cap = 1 + (int)Math.Sqrt(Math.Max(0, stageExp));
+        var pool = master.All(kind == PresentTypeWeapon ? "MWeapon" : "MEquipment")
+            .Where(r => MasterData.F<int>(r, "item_rank") <= cap).ToList();
+        if (pool.Count == 0) return;
+        var id = MasterData.F<ulong>(pool[_rng.Next(pool.Count)], "id");
+        var roll = _rng.NextDouble();
+        var (band, value) = roll < 0.05 ? (3, _rng.Next(70, 100)) : roll < 0.30 ? (2, _rng.Next(40, 70)) : (1, _rng.Next(1, 40));
+        var gear = shop.CreateDrop(p, kind, id, value);
+        if (gear == null) return;
+        (kind == PresentTypeWeapon ? weapons : equipment).Add(Shop.Wire(p, gear));
+        drops.Add(Obj(("id", id), ("num", 1), ("type", kind), ("rank", 0), ("rarity", band)));
+    }
+
+    // MEnemy drop tables: parallel arrays of present type / id / rarity / num and a % rate.
+    // Items go to the inventory, characters to the box, weapons/equipment are created (drop
+    // rarity 1/2/3 = common/rare/legend band of the 1..99 rarity value).
+    private void RollDrops(Player p, object enemy, List<object?> drops, List<object?> characters,
+        List<object?> weapons, List<object?> equipment, HashSet<ulong> changedItems)
+    {
+        var typesArr = MasterData.A<int>(enemy, "drop_present_type");
+        var ids = MasterData.A<ulong>(enemy, "drop_present_id");
+        var rarities = MasterData.A<int>(enemy, "drop_present_rarity");
+        var nums = MasterData.A<int>(enemy, "drop_present_num");
+        var rates = MasterData.A<float>(enemy, "drop_present_rate");
+        // The rates often add up to well over 100, so they are weights: an enemy drops one thing
+        // with DropChance, picked by those weights.
+        var count = Math.Min(typesArr.Length, Math.Min(ids.Length, rates.Length));
+        var total = Enumerable.Range(0, count).Sum(i => Math.Max(0f, rates[i]));
+        if (count == 0 || total <= 0 || _rng.NextDouble() >= DropChance) return;
+        var roll = _rng.NextDouble() * total;
+        var pick = count - 1;
+        for (var k = 0; k < count; k++)
+        {
+            roll -= Math.Max(0f, rates[k]);
+            if (roll < 0) { pick = k; break; }
+        }
+        foreach (var i in new[] { pick })
+        {
+            var type = typesArr[i];
+            var id = ids[i];
+            var rarity = i < rarities.Length ? rarities[i] : 1;
+            var num = Math.Max(1, i < nums.Length ? nums[i] : 1);
+            switch (type)
+            {
+                case PresentTypeItem when master.Get("MItem", id) != null:
+                    p.Items[id] = p.Items.GetValueOrDefault(id) + num;
+                    changedItems.Add(id);
+                    break;
+                case PresentTypeCharacter when master.Get("MCharacter", id) != null:
+                    var c = chars.Create(p.NextCharacterId(), id);
+                    p.Characters.Add(c);
+                    characters.Add(Characters.ToWire(c, p.Id));
+                    num = 1;
+                    break;
+                case PresentTypeWeapon or PresentTypeEquipment:
+                    var value = rarity switch { <= 1 => _rng.Next(1, 40), 2 => _rng.Next(40, 70), 3 => _rng.Next(70, 100), _ => Math.Min(rarity, 99) };
+                    var gear = shop.CreateDrop(p, type, id, value);
+                    if (gear == null) continue;
+                    (type == PresentTypeWeapon ? weapons : equipment).Add(Shop.Wire(p, gear));
+                    num = 1;
+                    break;
+                default:
+                    continue;
+            }
+            drops.Add(Obj(("id", id), ("num", num), ("type", type), ("rank", 0), ("rarity", rarity)));
+        }
     }
 
     // Mission flags are in the JWT payload ("a,b,c" under hfbm784khk2639pf); the signature isn't checked.

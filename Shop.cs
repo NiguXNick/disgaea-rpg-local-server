@@ -171,6 +171,15 @@ public sealed class Shop(MasterData master)
     private object? MasterRow(int kind, ulong id) => master.Get(kind == Weapon ? "MWeapon" : "MEquipment", id);
 
     // Stats as the shop preview shows them: ceil((min + per_stage*(lv-1)) * (1 + rarity/300)), spd without rarity.
+    // Used by battle drops: creates the item if the master row exists, null otherwise.
+    public Gear? CreateDrop(Player p, int kind, ulong mId, int rarity)
+    {
+        var m = MasterRow(kind, mId);
+        return m == null ? null : CreateGear(p, kind, mId, rarity, _rng.Next(0, 3), m);
+    }
+
+    public static Dictionary<string, object?> Wire(Player p, Gear g) => GearWire(p, g);
+
     private Gear CreateGear(Player p, int kind, ulong mId, int rarity, int pop, object m)
     {
         var g = new Gear { Id = p.NextGearId++, Kind = kind, MId = mId, RarityValue = rarity, Pop = pop, CreatedAt = Now };

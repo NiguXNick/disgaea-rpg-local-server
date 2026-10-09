@@ -39,7 +39,7 @@ public sealed class Handlers
         _map["player/weapons"] = _shop.Weapons;
         _map["player/equipments"] = _shop.Equipments;
 
-        var battle = new Battle(_master, _chars, Status, types);
+        var battle = new Battle(_master, _chars, Status, types, _shop);
         _map["player/sync"] = battle.Sync;
         _map["player/clear_stages"] = battle.ClearStages;
         _map["player/stage_missions"] = battle.StageMissions;
