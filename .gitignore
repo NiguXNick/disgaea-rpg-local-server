@@ -1,0 +1,17 @@
+# Build output
+bin/
+obj/
+publish/
+.vs/
+*.user
+
+# Local data: saves, logs
+save/
+*.log
+
+# Never commit game files or decompiled code
+*.dll
+*.exe
+*.bin
+*.bak
+decompiled/
