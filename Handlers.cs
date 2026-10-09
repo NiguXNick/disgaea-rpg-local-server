@@ -26,7 +26,19 @@ public sealed class Handlers
         _map["player/add"] = (p, q) => Obj();
         _map["app/constants"] = (p, q) => null; // SyncDefineData defaults come from the class itself
         _map["battle/status"] = (p, q) => Nil;
-        _map["player/sync"] = (p, q) => Array.Empty<object>();
+        _map["battle/reset"] = (p, q) => Obj();
+
+        var battle = new Battle(_master, _chars, Status, types);
+        _map["player/sync"] = battle.Sync;
+        _map["player/clear_stages"] = battle.ClearStages;
+        _map["player/stage_missions"] = battle.StageMissions;
+        _map["player/stage_currents"] = battle.StageCurrents;
+        _map["player/items"] = battle.ItemList;
+        _map["battle/help_list"] = battle.HelpList;
+        _map["battle/start"] = (p, q) => battle.Start(p, q, "battle/start");
+        _map["battle/end"] = (p, q) => battle.End(p, q, "battle/end");
+        _map["battle/story"] = (p, q) => battle.Story(p, q, "battle/story");
+        _map["player/abyss_gates"] = (p, q) => Obj(("t_abyss_gates", Array.Empty<object>()));
 
         var gacha = new Gacha(_master, _chars);
         _map["gacha/available"] = gacha.Available;
@@ -241,7 +253,7 @@ public sealed class Handlers
         var leader = p.Deck.Count > 0 ? p.Character(p.Deck[0]) : p.Characters.FirstOrDefault();
         var now = Time.Format(DateTime.UtcNow);
         return Obj(
-            ("id", p.Id), ("t_player_id", p.Id), ("rank", 1), ("exp", 0L), ("exp_total", 0L),
+            ("id", p.Id), ("t_player_id", p.Id), ("rank", p.Rank), ("exp", p.RankExp), ("exp_total", p.RankExpTotal),
             ("shop_rank", 1), ("survey_rank", 1u),
             // Offline: AP is always full at the game's cap (stages cost 0 AP anyway, see MasterFix)
             // and boxes are at their maximum size (SyncDefineData *_space_max).
@@ -305,6 +317,12 @@ public sealed class Handlers
         p == null ? null : Enumerable.Range(1, DeckGroups)
             .Select(g => (object?)Obj(("id", (ulong)g), ("t_player_id", p.Id), ("deck_group_no", g), ("name", "")))
             .ToList();
+
+    // Request parameter readers (prms is JsonUtility output; missing keys read as 0/false).
+    internal static ulong U(JsonObject q, string key) => q[key] is JsonNode n && ulong.TryParse(n.ToString(), out var v) ? v : 0;
+    internal static int I(JsonObject q, string key, int def = 0) => q[key] is JsonNode n && int.TryParse(n.ToString(), out var v) ? v : def;
+    internal static long L(JsonObject q, string key) => q[key] is JsonNode n && long.TryParse(n.ToString(), out var v) ? v : 0;
+    internal static bool B(JsonObject q, string key) => q[key] is JsonNode n && n.ToString() is "true" or "True" or "1";
 
     internal static Dictionary<string, object?> Obj(params (string Key, object? Value)[] kv) =>
         kv.ToDictionary(x => x.Key, x => x.Value);

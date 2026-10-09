@@ -25,6 +25,21 @@ public sealed class Player
 
     public Dictionary<ulong, GachaSum> GachaSums { get; set; } = new();
 
+    // Player rank: Rank, exp within the rank, cumulative exp.
+    public int Rank { get; set; } = 1;
+    public long RankExp { get; set; }
+    public long RankExpTotal { get; set; }
+
+    // Owned items by m_item_id (101 = HL).
+    public Dictionary<ulong, long> Items { get; set; } = new();
+
+    // Real story progress (the client is shown every stage as cleared so everything is open).
+    public Dictionary<ulong, int> StageClears { get; set; } = new();
+    public Dictionary<ulong, int> StageLosses { get; set; } = new();
+    public Dictionary<ulong, bool[]> StageMissions { get; set; } = new();
+    public ulong CurrentStage { get; set; }
+    public ulong BattleSeq { get; set; }
+
     public ulong NextCharacterId() => Math.Max(1UL, Characters.Count == 0 ? 0 : Characters.Max(c => c.Id)) + 1;
 
     public OwnedCharacter? Character(ulong id) => Characters.FirstOrDefault(c => c.Id == id);

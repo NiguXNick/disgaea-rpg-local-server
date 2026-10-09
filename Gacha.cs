@@ -47,11 +47,11 @@ public sealed class Gacha(MasterData master, Characters chars)
     public object? Do(Player? p, JsonObject q)
     {
         if (p == null) return null;
-        var gachaId = (ulong)(q["m_gacha_id"] ?? 0);
-        var num = Math.Clamp((int)(q["num"] ?? 1), 1, MaxPulls);
-        var free = q["is_gacha_free"] is JsonNode f && (bool)f;
-        var itemType = (int)(q["item_type"] ?? 0);
-        var price = (long)(q["price"] ?? 0);
+        var gachaId = U(q, "m_gacha_id");
+        var num = Math.Clamp(I(q, "num", 1), 1, MaxPulls);
+        var free = B(q, "is_gacha_free");
+        var itemType = I(q, "item_type", 0);
+        var price = L(q, "price");
 
         var gacha = master.Get("MGacha", gachaId);
         if (gacha == null)

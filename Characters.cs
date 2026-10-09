@@ -7,7 +7,8 @@ public sealed class OwnedCharacter
     public ulong MCharacterId { get; set; }
     public int Rarity { get; set; }
     public int Lv { get; set; } = 1;
-    public long Exp { get; set; }
+    public long Exp { get; set; }      // progress within the current level
+    public long ExpTotal { get; set; } // cumulative
     public int Hp { get; set; }
     public int Atk { get; set; }
     public int Def { get; set; }
@@ -39,10 +40,8 @@ public sealed class Characters(MasterData master)
             c.Hp = 100; c.Atk = 30; c.Def = 30; c.Inte = 30; c.Res = 30; c.Spd = 30;
             return c;
         }
-        int Stat(string name) => (int)Math.Ceiling(MasterData.F<double>(m, name + "_min") + MasterData.F<double>(m, name + "_per_lv") * (lv - 1));
         c.Rarity = rarity ?? MasterData.F<int>(m, "base_rare");
-        c.Hp = Stat("hp"); c.Atk = Stat("atk"); c.Def = Stat("def"); c.Inte = Stat("inte"); c.Res = Stat("res");
-        c.Spd = MasterData.F<int>(m, "spd_min");
+        ApplyStats(c, m);
         c.LeaderSkillId = MasterData.F<ulong>(m, "m_leader_skill_id");
 
         // Commands available at this level first, then the character's next ones: the battle result
@@ -69,6 +68,37 @@ public sealed class Characters(MasterData master)
         while (list.Count < 4) list.Add(list[0]); // no empty slots
         c.Commands = list.ToArray();
         return c;
+    }
+
+    private static void ApplyStats(OwnedCharacter c, object m)
+    {
+        int Stat(string name) => (int)Math.Ceiling(MasterData.F<double>(m, name + "_min") + MasterData.F<double>(m, name + "_per_lv") * (c.Lv - 1));
+        c.Hp = Stat("hp"); c.Atk = Stat("atk"); c.Def = Stat("def"); c.Inte = Stat("inte"); c.Res = Stat("res");
+        c.Spd = MasterData.F<int>(m, "spd_min");
+    }
+
+    // Level cap without rebirths (SyncDefineData.rebirth_rise_lv).
+    private const int MaxLevel = 100;
+
+    // Adds exp and levels up with MCharacterLevel (need_exp of level L = exp to go from L-1 to L);
+    // stats are recomputed for the new level. Returns true on level up.
+    public bool AddExp(OwnedCharacter c, long exp)
+    {
+        if (exp <= 0) return false;
+        var start = c.Lv;
+        c.ExpTotal += exp;
+        c.Exp += exp;
+        var needs = master.All("MCharacterLevel").ToDictionary(r => MasterData.F<int>(r, "lv"), r => MasterData.F<long>(r, "need_exp"));
+        while (c.Lv < MaxLevel && needs.TryGetValue(c.Lv + 1, out var need) && need > 0 && c.Exp >= need)
+        {
+            c.Exp -= need;
+            c.Lv++;
+        }
+        if (c.Lv >= MaxLevel) c.Exp = 0;
+        if (c.Lv == start) return false;
+        var m = master.Get("MCharacter", c.MCharacterId);
+        if (m != null) ApplyStats(c, m);
+        return true;
     }
 
     // CharacterUserData as the client expects it (t_character_commands must match m_command_id_N).
@@ -98,7 +128,7 @@ public sealed class Characters(MasterData master)
             ["m_leader_skill_lv"] = 1,
             ["lv"] = c.Lv,
             ["exp"] = c.Exp,
-            ["exp_total"] = c.Exp,
+            ["exp_total"] = c.ExpTotal,
             ["hp"] = c.Hp,
             ["atk"] = c.Atk,
             ["def"] = c.Def,

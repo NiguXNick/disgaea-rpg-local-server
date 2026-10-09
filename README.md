@@ -1,4 +1,4 @@
-# Disgaea RPG — local (offline) server
+﻿# Disgaea RPG â€” local (offline) server
 
 A local replacement server for the global Steam release of **DISGAEA RPG**, whose official
 servers (Boltrend) shut down on 2023-05-12. With it the game boots again and can be played
@@ -6,8 +6,9 @@ offline, with progress saved on your own PC.
 
 **Status: work in progress.** Working: boot, login, the full tutorial, the home screen and
 summons (banners in term, single/10x pulls with the master rates). New players start with
-3,000 free Nether Quartz. Stages, equipment, missions and the rest of the game are still being
-implemented.
+3,000 free Nether Quartz. Story stages: every stage is open, battles give character/rank exp,
+HL and quartz (+50 first clear, +10 per new mission star); stages cost no AP. Equipment,
+missions, shop and the rest of the game are still being implemented.
 
 This repository contains **no game files** (executables, DLLs, assets or master data).
 You need the game installed through Steam.
@@ -15,7 +16,7 @@ You need the game installed through Steam.
 ## Requirements
 
 - Windows, with DISGAEA RPG installed through Steam
-- Steam running (offline mode is fine) — the game quits at startup without it
+- Steam running (offline mode is fine) â€” the game quits at startup without it
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 
 ## Usage
@@ -33,7 +34,7 @@ You need the game installed through Steam.
    ```
    Options: `--port 8765`, `--game "<game folder>"`, `--data "<save folder>"`.
 
-3. **Launch the game from Steam.** On the login window type any account name — it only picks
+3. **Launch the game from Steam.** On the login window type any account name â€” it only picks
    which save to use (the password is ignored). The game remembers the last account.
 
 To undo everything: `powershell -ExecutionPolicy Bypass -File tools\restore-game.ps1`.
@@ -42,7 +43,7 @@ To undo everything: `powershell -ExecutionPolicy Bypass -File tools\restore-game
 
 - **Redirect:** `StreamingAssets/settings/*.ini` are gzip + RC4. `config_server.ini` is rewritten
   to point at `http://127.0.0.1:8765/Server`, from which the server hands out the server list and
-  the server config (`api`, `asset`, `master_bin`, …).
+  the server config (`api`, `asset`, `master_bin`, â€¦).
 - **Login:** the SDK config is served with `"status": "Disable"`, which makes the game itself
   replace the Boltrend web login with a simple account/password window (`/signin`).
 - **Protocol:** AES-256-CBC + MessagePack requests (`/version_check`, `/signin`, and JSON-RPC over
@@ -62,7 +63,7 @@ To undo everything: `powershell -ExecutionPolicy Bypass -File tools\restore-game
 |---|---|
 | `BootFiles.cs` | List.ini, server config, SDK config, local asset CDN |
 | `ApiRouter.cs` | encryption, `/version_check`, `/signin`, `/rpc` dispatch |
-| `Handlers.cs` | RPC method logic (tutorial, player data, …) |
+| `Handlers.cs` | RPC method logic (tutorial, player data, â€¦) |
 | `GameTypes.cs` / `SchemaWriter.cs` | client types and exact-shape serialisation |
 | `MasterFix.cs` / `MasterData.cs` | master data upgrade and lookups |
 | `Characters.cs`, `PlayerStore.cs` | characters and save files |

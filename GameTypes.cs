@@ -155,6 +155,21 @@ public sealed class GameTypes
         return ms.ToArray();
     }
 
+    // Instance fields (by wire name) whose type is a nested object, not a value/string/collection.
+    public static IEnumerable<string> ObjectFieldNames(Type type)
+    {
+        for (var t = type; t != null && t != typeof(object); t = t.BaseType)
+            foreach (var f in t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            {
+                var ft = f.FieldType;
+                if (ft.IsValueType || ft == typeof(string) || ft.IsArray || (ft.IsGenericType && ft.GetGenericTypeDefinition() == typeof(List<>))) continue;
+                var name = f.Name;
+                int end;
+                if (name[0] == '<' && (end = name.IndexOf('>')) > 1) name = name.Substring(1, end - 1);
+                yield return name;
+            }
+    }
+
     public Type ListOf(string elementName) => typeof(List<>).MakeGenericType(Get(elementName));
     public Type ArrayOf(string elementName) => Get(elementName).MakeArrayType();
 
