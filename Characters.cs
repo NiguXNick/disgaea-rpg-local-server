@@ -23,7 +23,7 @@ public sealed class OwnedCharacter
 public sealed class Characters(MasterData master)
 {
     // Stats follow the client's CharacterManager formula: min + per_lv * (lv - 1) (rarity correction 1, rebirth 0).
-    public OwnedCharacter Create(ulong id, ulong mCharacterId, int? rarity = null, int lv = 1)
+    public OwnedCharacter Create(ulong id, ulong mCharacterId, int? rarity = null, int lv = 1, bool padSlots = false)
     {
         var m = master.Get("MCharacter", mCharacterId);
         var c = new OwnedCharacter
@@ -65,8 +65,11 @@ public sealed class Characters(MasterData master)
             c.Commands = new ulong[4];
             return c;
         }
-        while (list.Count < 4) list.Add(list[0]); // no empty slots
-        c.Commands = list.ToArray();
+        // The tutorial's battle result walks a fixed 4-slot array and crashes on empty slots, so
+        // tutorial characters repeat their first command; elsewhere duplicates break the command
+        // screens (SortCommandController keys by command id) and slots stay empty.
+        if (padSlots) while (list.Count < 4) list.Add(list[0]);
+        c.Commands = list.Concat(Enumerable.Repeat(0UL, 4)).Take(4).ToArray();
         return c;
     }
 

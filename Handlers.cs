@@ -49,7 +49,7 @@ public sealed class Handlers
         _map["player/tutorial"] = Tutorial;
         _map["player/tutorial_gacha_single"] = TutorialGachaSingle;
         _map["player/tutorial_choice_characters"] = (p, q) => Obj(("character_user_datas",
-            TutorialChoices.Select(m => (object?)Characters.ToWire(_chars.Create(m, m), p?.Id ?? 0)).ToList()));
+            TutorialChoices.Select(m => (object?)Characters.ToWire(_chars.Create(m, m, padSlots: true), p?.Id ?? 0)).ToList()));
 
         _map["player/profile"] = (p, q) => p == null ? null : Profile(p);
         _map["player/index"] = PlayerIndex;
@@ -57,6 +57,19 @@ public sealed class Handlers
         _map["player/decks"] = Decks;
         _map["login/update"] = LoginUpdate;
         _map["player/deck_groups"] = DeckGroupList;
+        _map["player/update_deck"] = UpdateDeck;
+
+        // Sub tutorials (guided explanations on first visits) block their screens until the read
+        // is recorded; offline every one is reported as already read, so none of them start.
+        _map["player/sub_tutorials"] = (p, q) => p == null ? null : SubTutorialIds(p).Select(id => (object?)SubTutorialRow(p, id)).ToList();
+        _map["sub_tutorial/read"] = (p, q) =>
+        {
+            if (p == null) return null;
+            var id = U(q, "m_sub_tutorial_id");
+            p.SubTutorialsRead.Add(id);
+            return Obj(("after_t_sub_tutorials", new List<object?> { SubTutorialRow(p, id) }),
+                ("after_t_items", Nil), ("after_t_status", Nil), ("after_t_agendas", Nil));
+        };
         _map["arena/current"] = (p, q) => p == null ? null : Obj(("t_arena", Arena(p)));
         // Today's free bingo already drawn: the login bingo skips its lottery animation and the
         // home screen's popup chain continues (see MasterFix.AddMissingTables).
@@ -106,11 +119,21 @@ public sealed class Handlers
         return false;
     }
 
-    // Saves made before every command slot was filled would crash the battle result screen.
+    // During the tutorial command slots must all be filled (see Characters.Create); afterwards
+    // repeated commands break the command screens, so duplicates are cleared.
     private void RepairCharacters(Player p)
     {
-        foreach (var c in p.Characters.Where(c => c.Commands.Any(x => x == 0)))
-            c.Commands = _chars.Create(c.Id, c.MCharacterId, c.Rarity, c.Lv).Commands;
+        foreach (var c in p.Characters)
+        {
+            if (p.IsTutorial)
+            {
+                if (c.Commands.Any(x => x == 0)) c.Commands = _chars.Create(c.Id, c.MCharacterId, c.Rarity, c.Lv, padSlots: true).Commands;
+                continue;
+            }
+            var seen = new HashSet<ulong>();
+            for (var i = 0; i < c.Commands.Length; i++)
+                if (c.Commands[i] != 0 && !seen.Add(c.Commands[i])) c.Commands[i] = 0;
+        }
     }
 
     // Default value for an unimplemented method: empty object / empty collection.
@@ -147,7 +170,7 @@ public sealed class Handlers
                     step = 1; // gacha animation still running
                     break;
                 case 2:
-                    var hero = _chars.Create(1, ids.FirstOrDefault(TutorialGachaPool[0]), p.GachaRarity > 0 ? p.GachaRarity : null);
+                    var hero = _chars.Create(1, ids.FirstOrDefault(TutorialGachaPool[0]), p.GachaRarity > 0 ? p.GachaRarity : null, padSlots: true);
                     p.Characters = [hero];
                     p.Deck = [hero.Id];
                     break;
@@ -156,7 +179,7 @@ public sealed class Handlers
                     break;
                 case 7:
                     foreach (var m in ids.Where(m => p.Character(m) == null))
-                        p.Characters.Add(_chars.Create(m, m));
+                        p.Characters.Add(_chars.Create(m, m, padSlots: true));
                     p.Deck = new[] { 1UL }.Concat(ids.Where(id => id != 1 && p.Character(id) != null)).Take(5).ToList();
                     break;
                 case 4 or 6 or 8:
@@ -259,7 +282,7 @@ public sealed class Handlers
             // and boxes are at their maximum size (SyncDefineData *_space_max).
             ("act", 9999), ("act_max", 9999), ("act_at", now),
             ("character_max", 999), ("weapon_max", 999), ("equipment_max", 999), ("innocent_store_max", 999),
-            ("deck_no", 1), ("kingdom_rank", StartKingdomRank),
+            ("deck_no", p.SelectedDeckNo), ("kingdom_rank", StartKingdomRank),
             ("favorite_char_id", leader?.Id ?? 0), ("favorite_m_char_id", leader?.MCharacterId ?? 0),
             ("agenda_confirm_at", now), ("last_free_gacha_at", ""), ("verify_age_date", ""));
     }
@@ -302,15 +325,47 @@ public sealed class Handlers
         var decks = new List<object?>();
         for (var no = 1; no <= DeckGroups * DecksPerGroup; no++)
         {
-            var ids = (no == 1 ? p.Deck : new List<ulong>()).Concat(Enumerable.Repeat(0UL, 5)).Take(5).ToArray();
+            var saved = p.Decks.TryGetValue(no, out var d) ? d : no == p.SelectedDeckNo ? p.Deck : new List<ulong>();
+            var ids = saved.Concat(Enumerable.Repeat(0UL, 5)).Take(5).ToArray();
             var leader = p.Character(ids[0]);
-            decks.Add(Obj(("id", (ulong)no), ("t_player_id", p.Id), ("deck_no", no), ("name", ""),
+            decks.Add(Obj(("id", (ulong)no), ("t_player_id", p.Id), ("deck_no", no), ("name", p.DeckNames.GetValueOrDefault(no, "")),
                 ("leader_t_character_id", ids[0]), ("leader_m_character_id", leader?.MCharacterId ?? 0),
                 ("t_character_ids", Obj(("pos1", ids[0]), ("pos2", ids[1]), ("pos3", ids[2]), ("pos4", ids[3]), ("pos5", ids[4]))),
                 ("t_memory_ids", new object[] { 0UL, 0UL, 0UL, 0UL, 0UL }),
                 ("created_at", p.CreatedAt), ("updated_at", p.CreatedAt)));
         }
         return decks;
+    }
+
+    private const int SubTutorialStatusRead = 1;
+
+    private IEnumerable<ulong> SubTutorialIds(Player p) =>
+        _master.All("MSubTutorial").Select(r => MasterData.F<ulong>(r, "id")).Concat(p.SubTutorialsRead).Distinct();
+
+    private static Dictionary<string, object?> SubTutorialRow(Player p, ulong id) => Obj(
+        ("id", id), ("t_player_id", p.Id), ("m_sub_tutorial_id", id), ("status", SubTutorialStatusRead),
+        ("updated_at", Time.Format(DateTime.UtcNow)));
+
+    // deck_data: charaIdList[i] / t_memory_ids_list[i] are "id,id,id,id,id" for deck i+1, names[i].
+    private static object? UpdateDeck(Player? p, JsonObject q)
+    {
+        if (p == null || q["deck_data"] is not JsonObject data) return null;
+        var lists = data["charaIdList"] as JsonArray ?? [];
+        var names = data["names"] as JsonArray ?? [];
+        for (var i = 0; i < lists.Count; i++)
+        {
+            var ids = (lists[i]?.ToString() ?? "").Split(',')
+                .Select(s => ulong.TryParse(s, out var v) && p.Character(v) != null ? v : 0UL)
+                .Concat(Enumerable.Repeat(0UL, 5)).Take(5).ToList();
+            if (ids.Any(x => x != 0) || p.Decks.ContainsKey(i + 1)) p.Decks[i + 1] = ids;
+            var name = i < names.Count ? names[i]?.ToString() : null;
+            if (!string.IsNullOrEmpty(name)) p.DeckNames[i + 1] = name;
+        }
+        p.SelectedDeckNo = I(data, "selectDeckNo", p.SelectedDeckNo);
+        if (p.Decks.TryGetValue(p.SelectedDeckNo, out var selected) && selected.Any(x => x != 0))
+            p.Deck = selected.Where(x => x != 0).ToList();
+        Log.Info($"Party {p.SelectedDeckNo}: {string.Join(", ", p.Deck)}");
+        return Obj();
     }
 
     private static object? DeckGroupList(Player? p, JsonObject q) =>

@@ -13,7 +13,10 @@ public sealed class Player
     public int TutorialStep { get; set; } // 0 = prologue (TutorialManager.TutorialControllerByStep)
     public string CreatedAt { get; set; } = "";
     public List<OwnedCharacter> Characters { get; set; } = new();
-    public List<ulong> Deck { get; set; } = new(); // t_character ids of deck 1, leader first
+    public List<ulong> Deck { get; set; } = new(); // t_character ids of the selected deck, leader first
+    public Dictionary<int, List<ulong>> Decks { get; set; } = new(); // deck_no -> 5 slots (0 = empty)
+    public Dictionary<int, string> DeckNames { get; set; } = new();
+    public int SelectedDeckNo { get; set; } = 1;
     public int GachaRarity { get; set; }
 
     // Nether Quartz: a starting amount (enough for one 10x summon); the rest is earned in game.
@@ -38,6 +41,7 @@ public sealed class Player
     public Dictionary<ulong, int> StageLosses { get; set; } = new();
     public Dictionary<ulong, bool[]> StageMissions { get; set; } = new();
     public ulong CurrentStage { get; set; }
+    public HashSet<ulong> SubTutorialsRead { get; set; } = new();
     public ulong BattleSeq { get; set; }
 
     public ulong NextCharacterId() => Math.Max(1UL, Characters.Count == 0 ? 0 : Characters.Max(c => c.Id)) + 1;
