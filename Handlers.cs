@@ -229,15 +229,18 @@ public sealed class Handlers
     private object? LoginUpdate(Player? p, JsonObject q)
     {
         if (p == null) return null;
+        // Bonus lists must be nil when there's nothing to show: LoginBonusController skips a popup
+        // only on null (an empty list opens the 8-day special login bonus window with no data and
+        // locks the home screen under its dimmed background).
         return Obj(
             ("after_t_status", Status(p)),
             ("after_t_record", Record(p)),
-            ("after_t_login_bonuses", Array.Empty<object>()),
+            ("after_t_login_bonuses", Nil),
             ("after_present_count", 0),
-            ("after_t_passports", Array.Empty<object>()),
-            ("after_t_campaign_login_bonuses", Array.Empty<object>()),
-            ("login_roulette_items", Array.Empty<object>()),
-            ("memorial_login_bonuses", Array.Empty<object>()),
+            ("after_t_passports", Nil),
+            ("after_t_campaign_login_bonuses", Nil),
+            ("login_roulette_items", Nil),
+            ("memorial_login_bonuses", Nil),
             ("help_reward", Nil));
     }
 
