@@ -55,6 +55,11 @@ public sealed class Player
     public Dictionary<int, ulong[][]> EquipmentDecks { get; set; } = new();
     public Dictionary<int, string> EquipmentDeckNames { get; set; } = new();
 
+    // Nether Pass: days of rewards received, last reward day (yyyy-MM-dd), first activation.
+    public int PassportDays { get; set; }
+    public string PassportLastDay { get; set; } = "";
+    public string PassportStartedAt { get; set; } = "";
+
     // Fishing Fleet (Survey) areas by m_survey_id, and the fleet rank.
     public Dictionary<ulong, SurveyState> Surveys { get; set; } = new();
     public uint SurveyRank { get; set; } = 1;

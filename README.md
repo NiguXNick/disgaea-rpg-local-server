@@ -11,7 +11,8 @@ summons (banners in term, single/10x pulls with the master rates). New players s
 3,000 free Nether Quartz. Story stages: every stage is open and costs no AP; battles give
 character/rank exp, HL and quartz on every win (5 per difficulty rank plus a tenth of the
 stage exp, +50 on the first clear, +10 per new mission star), enemy drops and bonus gear.
-Also working: reincarnation (level cap above 100), swapping skills, battle skip, the AP bar
+Also working: the Nether Pass, always active (its daily quartz, Gate Keys and skip coupons
+arrive in the gift box), reincarnation (level cap above 100), swapping skills, battle skip, the AP bar
 hidden from the top of the screen, the equipment shop, equipping gear and gear presets, the
 Fishing Fleet, the gift box, missions (beginner sheets, trophies, daily,
 weekly and repeatable ones; rewards arrive in the gift box) and the Item World (levelling

@@ -17,6 +17,7 @@ public sealed class Handlers
     private readonly Characters _chars;
     private readonly MasterData _master;
     private readonly Shop _shop;
+    private readonly Passport _passport;
     private readonly Dictionary<string, Func<Player?, JsonObject, object?>> _map = new();
 
     public Handlers(GameTypes types, PlayerStore players)
@@ -71,6 +72,10 @@ public sealed class Handlers
         _map["player/abyss_gates"] = (p, q) => Obj(("t_abyss_gates", Array.Empty<object>()));
 
         var rewards = new Rewards(_master, _chars, _shop);
+        _passport = new Passport(_master, rewards);
+        _map["passport/index"] = _passport.Index;
+        // Store points (paid currency history): none offline. data is a JSON string.
+        _map["boltrend/common"] = (p, q) => Obj(("data", q["type"]?.ToString() == "get_points" ? "[]" : ""));
         _map["present/index"] = rewards.Index;
         _map["present/history"] = rewards.History;
         _map["present/receive"] = rewards.Receive;
@@ -376,6 +381,7 @@ public sealed class Handlers
     {
         if (p == null) return null;
         Progress.LoggedIn(p);
+        var passports = _passport.Daily(p);
         // Bonus lists must be nil when there's nothing to show: LoginBonusController skips a popup
         // only on null (an empty list opens the 8-day special login bonus window with no data and
         // locks the home screen under its dimmed background).
@@ -386,7 +392,8 @@ public sealed class Handlers
             ("after_present_count", Rewards.PendingCount(p)),
             // Must be a list (even empty): HomeEngine only creates m_FinishedPassportIdList when it
             // isn't null, and PassportAttentionProcess dereferences that list unconditionally.
-            ("after_t_passports", Array.Empty<object>()),
+            // A row here (once a day) opens the Nether Pass "today's reward" popup.
+            ("after_t_passports", passports),
             ("after_t_campaign_login_bonuses", Nil),
             ("login_roulette_items", Nil),
             ("memorial_login_bonuses", Nil),

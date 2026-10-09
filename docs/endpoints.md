@@ -67,6 +67,18 @@ Everything not listed gets a well-formed default response (`RPC not implemented`
 | `battle/skip` | `skip_num` wins at once, every enemy of the stage's waves defeated each run; same response as `battle/end` (`drop_result.drop_list` and `after_t_stage_current` never null). The button needs the stage's `skip_flg`, all 3 mission stars and a skip ticket: the item of `item_type` 24 whose `effect_value` lists the battle type (10002 for normal stages, 2401 for Dark Gates). Offline those tickets are kept at 999, like AP. |
 | `battle/skip_parties` | `{skip_parties: []}` |
 
+## Nether Pass (`Passport.cs`)
+
+The Nether Pass is passport 1 (not a Boltrend subscription). It is active for everyone offline.
+
+| Method | Notes |
+|---|---|
+| `passport/index` | `PassportData` list (`_items`/`_size`), unique ids. The client only checks `sum_days - now_days > 0`; 90 days left are kept constant (also blocks re-buying, limit 90). |
+| `login/update` `after_t_passports` | The pass row only on the first call of a day, when MPassport 1's daily items (quartz ×60, Gate Key ×3, DG Skip Coupon ×12) go to the gift box; it opens the "today's pass reward" popup. Otherwise `[]` (never null). |
+| `boltrend/common` (`get_points`) | `data` is a JSON string: `"[]"` |
+
+Not used offline: `boltrend/subscriptions` (EXP subscription, Prinny/Master Pass; their BSubscription masters are missing), `boltrend/current_pass` / `receive_pass_items` (point Battle Pass; no BPass rows).
+
 ## UI hooks (`Hooks.cs`)
 
 The server config points `hook_j` at the server (`hook_direct=true`): it serves the installed
