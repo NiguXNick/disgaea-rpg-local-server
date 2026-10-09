@@ -47,6 +47,17 @@ public sealed class MasterData
         throw new MissingFieldException(row.GetType().Name, field);
     }
 
+    // Arrays of nested records (e.g. MSurvey.presents).
+    public static object[] Objects(object row, string field)
+    {
+        for (var t = row.GetType(); t != null; t = t.BaseType)
+        {
+            var f = t.GetField(field, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+            if (f != null) return f.GetValue(row) is Array arr ? arr.Cast<object>().Where(x => x != null).ToArray() : [];
+        }
+        throw new MissingFieldException(row.GetType().Name, field);
+    }
+
     // Master dates are "yyyy-MM-dd HH:mm:ss"; the client checks open <= now < close.
     public static bool InTerm(object row, DateTime now)
     {

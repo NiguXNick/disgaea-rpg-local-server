@@ -51,6 +51,16 @@ public sealed class Player
     public List<ShopItem> ShopItems { get; set; } = new();
     public ulong BattleSeq { get; set; }
 
+    // Gear presets: deck no -> 5 party positions x [weapon, equipment 1..3] (0 = empty).
+    public Dictionary<int, ulong[][]> EquipmentDecks { get; set; } = new();
+    public Dictionary<int, string> EquipmentDeckNames { get; set; } = new();
+
+    // Fishing Fleet (Survey) areas by m_survey_id, and the fleet rank.
+    public Dictionary<ulong, SurveyState> Surveys { get; set; } = new();
+    public uint SurveyRank { get; set; } = 1;
+    public ulong SurveyExp { get; set; }
+    public ulong SurveyExpTotal { get; set; }
+
     // Item World floor in progress (item_world/start -> battle/end).
     public ulong ItemWorldGearId { get; set; }
     public int ItemWorldFloor { get; set; }
@@ -94,6 +104,8 @@ public sealed class Gear
     public int Lv { get; set; } = 1;
     public int LvMax { get; set; } = 10;
     public int Stage { get; set; } // Item World floors cleared
+    public ulong SetCharaId { get; set; } // character wearing it (0 = none)
+    public int SetNo { get; set; }        // slot: weapon 0, equipment 0..2
     public int Hp { get; set; }
     public int Atk { get; set; }
     public int Def { get; set; }
@@ -111,6 +123,14 @@ public sealed class ShopItem
     public int Rarity { get; set; }
     public int Pop { get; set; }
     public bool Sold { get; set; }
+}
+
+public sealed class SurveyState
+{
+    public List<ulong> CharacterIds { get; set; } = new();
+    public int AreaCondition { get; set; } = 3; // 1..5, the "fish condition"
+    public int Hour { get; set; }
+    public string EndAt { get; set; } = "";     // "" = idle; future = sailing; past = back
 }
 
 public sealed class Gift

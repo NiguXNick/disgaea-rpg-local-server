@@ -50,41 +50,14 @@ public sealed class Rewards(MasterData master, Characters chars, Shop shop)
 
         foreach (var g in p.Gifts.Where(g => !g.Received && ids.Contains(g.Id)).ToList())
         {
-            switch (g.Type)
-            {
-                case TypeItem when g.PresentId == ItemFreeQuartz:
-                    p.FreeStone += g.Num;
-                    stones = true;
-                    break;
-                case TypeItem when g.PresentId == ItemPaidQuartz:
-                    p.PaidStone += g.Num;
-                    stones = true;
-                    break;
-                case TypeItem when g.PresentId == ItemAp:
-                    break; // AP is always full offline
-                case TypeItem:
-                    p.Items[g.PresentId] = p.Items.GetValueOrDefault(g.PresentId) + g.Num;
-                    items.Add(g.PresentId);
-                    break;
-                case TypeCharacter when master.Get("MCharacter", g.PresentId) != null:
-                    for (var i = 0; i < g.Num; i++)
-                    {
-                        var c = chars.Create(p.NextCharacterId(), g.PresentId, g.Rarity > 0 ? g.Rarity : null);
-                        p.Characters.Add(c);
-                        characters.Add(Characters.ToWire(c, p.Id));
-                    }
-                    break;
-                case TypeWeapon or TypeEquipment:
-                    for (var i = 0; i < g.Num; i++)
-                    {
-                        var gear = shop.CreateDrop(p, g.Type, g.PresentId, RarityValue(g.Rarity));
-                        if (gear != null) (g.Type == TypeWeapon ? weapons : equipment).Add(Shop.Wire(p, gear));
-                    }
-                    break;
-                default:
-                    Log.Warn($"Gift {g.Id}: present type {g.Type} id {g.PresentId} can't be given offline; marked received.");
-                    break;
-            }
+            var granted = new Granted();
+            if (!Grant(p, g.Type, g.PresentId, g.Rarity, g.Num, granted))
+                Log.Warn($"Gift {g.Id}: present type {g.Type} id {g.PresentId} can't be given offline; marked received.");
+            items.UnionWith(granted.Items);
+            stones |= granted.Stones;
+            characters.AddRange(granted.Characters);
+            weapons.AddRange(granted.Weapons);
+            equipment.AddRange(granted.Equipment);
             g.Received = true;
             g.ReceivedAt = Now;
             received.Add(g.Id);
@@ -119,6 +92,53 @@ public sealed class Rewards(MasterData master, Characters chars, Shop shop)
             ("received_ids", received), // never null: the client reads its length
             ("present_list", PendingList(p, q)), // null would empty the client's list
             ("history_list", HistoryList(p)));
+    }
+
+    // What Grant changed, for the response's update fields.
+    public sealed class Granted
+    {
+        public readonly HashSet<ulong> Items = new();
+        public bool Stones;
+        public readonly List<object?> Characters = new(), Weapons = new(), Equipment = new();
+    }
+
+    // Applies one present (gift, fleet catch, ...) to the save. False if it can't be given offline.
+    public bool Grant(Player p, int type, ulong presentId, int rarity, int num, Granted g)
+    {
+        switch (type)
+        {
+            case TypeItem when presentId == ItemFreeQuartz:
+                p.FreeStone += num;
+                g.Stones = true;
+                return true;
+            case TypeItem when presentId == ItemPaidQuartz:
+                p.PaidStone += num;
+                g.Stones = true;
+                return true;
+            case TypeItem when presentId == ItemAp:
+                return true; // AP is always full offline
+            case TypeItem:
+                p.Items[presentId] = p.Items.GetValueOrDefault(presentId) + num;
+                g.Items.Add(presentId);
+                return true;
+            case TypeCharacter when master.Get("MCharacter", presentId) != null:
+                for (var i = 0; i < num; i++)
+                {
+                    var c = chars.Create(p.NextCharacterId(), presentId, rarity > 0 ? rarity : null);
+                    p.Characters.Add(c);
+                    g.Characters.Add(Characters.ToWire(c, p.Id));
+                }
+                return true;
+            case TypeWeapon or TypeEquipment:
+                for (var i = 0; i < num; i++)
+                {
+                    var gear = shop.CreateDrop(p, type, presentId, RarityValue(rarity));
+                    if (gear != null) (type == TypeWeapon ? g.Weapons : g.Equipment).Add(Shop.Wire(p, gear));
+                }
+                return true;
+            default:
+                return false;
+        }
     }
 
     private List<object?> PendingList(Player p, JsonObject q)

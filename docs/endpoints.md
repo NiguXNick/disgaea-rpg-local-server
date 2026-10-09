@@ -51,6 +51,26 @@ Everything not listed gets a well-formed default response (`RPC not implemented`
 | `item_world/start` | One floor per battle, floor = item `stage` + 1. `battle_type` must be 5, `m_stage_id` 0, `equipment_id`/`equipment_type` echoed, `stage` = floor (an MItemWorld id). The client has no Item World enemy table: waves are borrowed from a story stage whose `proper_level` is closest below item rank + floor (+20% on boss floors). No innocents yet (`t_innocent_id` 0). |
 | `battle/end` (`battle_type` 5) | Item `stage` = floor, `lv` from MWeaponEquipmentLevel (boss floors jump: floor 30 = Lv50, 60 = Lv100, 100 = Lv180), stats recomputed. Depth by rarity value: 30 / 60 / 100 floors (<40 / <70 / legendary). `after_t_record` must be filled; `after_t_weapon` or `after_t_equipment` carries the item; `obey_innocent`, `remove_t_innocent`, `breeding_t_item`, `stage_mission_after`, `after_t_stage_current` must be null. Quartz: 2 + floor/5, +10 on boss floors. |
 
+## Equipping and gear presets (`Equipment.cs`)
+
+| Method | Notes |
+|---|---|
+| `player/change_chara_equipment` | `set_weapon_id_list` [weapon], `set_equipment_id_list` [3 slots]; 0 = empty. The client knows who wears what only from each item's `set_chara_id`/`set_no` (weapon slot 0, equipment 0..2). Returns full rows of every item that changed in `t_weapons`/`t_equipments`; `t_characters` must be a list (never null). |
+| `player/characters` (gear fields) | `weapons`/`equipments` (and effects/innocents) must be **null** on the player's own characters, otherwise equipped gear never shows; only guests (`t_player_id` 0) use the attached lists |
+| `player/equipment_decks` | 10 presets, each with all five `position*` objects. Zero presets crashes the preset screen (it indexes them by a saved tab position, so the count must never shrink). Ids of sold items read as 0. |
+| `weapon_equipment/update_equipment_deck` | Rename, explicit contents (four arrays of 5), copy a party's gear (`deck_no`) or one character's (`t_character_id` + `character_position`). `after_t_equipment_decks` must have at least one row. |
+| `weapon_equipment/change_deck_equipments` | Applies a preset to a party; 0 keeps the current item |
+| `player/weapon_effects`, `player/equipment_effects`, `weapon_equipment/update_effect_unconfirmed` | No alchemy effects yet: empty lists / an object with empty lists |
+
+## Fishing Fleet (`Survey.cs`)
+
+| Method | Notes |
+|---|---|
+| `survey/index` | One row per MSurvey area, always (`t_character_ids` never null). Without them the screen crashes reading the "fish condition" (`area_condition` 1..5, player data). State comes only from `end_at`: none = idle, future = sailing, past = back. Status `survey_rank` must match an MSurveyRank row. |
+| `survey/start` | Trip length: offline one in-game hour takes 1 real minute |
+| `survey/end` | Cancel or collect; `after_t_survey` never null. Catches from `MSurvey.presents` are applied directly (`drop_result.drop_list` never null), more with a better fish condition and Big / Super Big results. Characters exp on exp_type 1 areas. Any id left in `t_character_ids` counts as "on a trip" for the client even when idle, so the finished survey goes back empty and the crew comes back in `after_t_characters`. Fleet exp ranks the fleet up automatically (normally a Dark Assembly bill). |
+| `survey/use_bribe_item` | Raises the fish condition by the item's effect value, up to 5. Must always succeed: the client has no error handler there. |
+
 ## Gift box (`Rewards.cs`)
 
 Mission and trophy rewards are never applied by the client from the mission responses: the

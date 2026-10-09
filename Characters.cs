@@ -145,6 +145,14 @@ public sealed class Characters(MasterData master)
             ["m_character_retrofit_ids"] = Array.Empty<object>(),
             ["created_at"] = c.CreatedAt,
             ["t_character_commands"] = commands,
+            // The player's own characters must have null gear lists: the client then builds them
+            // from each item's set_chara_id/set_no (an empty list would hide equipped gear).
+            // Guests (t_player_id 0, e.g. the NPC helper) only use the attached lists.
+            ["weapons"] = playerId != 0 ? SchemaWriter.Nil : Array.Empty<object>(),
+            ["equipments"] = playerId != 0 ? SchemaWriter.Nil : Array.Empty<object>(),
+            ["weapon_effects"] = playerId != 0 ? SchemaWriter.Nil : Array.Empty<object>(),
+            ["equipment_effects"] = playerId != 0 ? SchemaWriter.Nil : Array.Empty<object>(),
+            ["innocents"] = playerId != 0 ? SchemaWriter.Nil : Array.Empty<object>(),
         };
     }
 }

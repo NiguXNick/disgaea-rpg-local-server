@@ -39,6 +39,17 @@ public sealed class Handlers
         _map["player/weapons"] = _shop.Weapons;
         _map["player/equipments"] = _shop.Equipments;
 
+        var equipment = new Equipment();
+        _map["player/change_chara_equipment"] = equipment.Change;
+        _map["player/equipment_decks"] = equipment.Decks;
+        _map["weapon_equipment/update_equipment_deck"] = equipment.UpdateDeck;
+        _map["weapon_equipment/change_deck_equipments"] = equipment.ApplyDeck;
+        // No gear effects yet (alchemy); these must still be lists / an object.
+        _map["player/weapon_effects"] = (p, q) => new List<object?>();
+        _map["player/equipment_effects"] = (p, q) => new List<object?>();
+        _map["weapon_equipment/update_effect_unconfirmed"] = (p, q) =>
+            Obj(("weapon_effects", Array.Empty<object>()), ("equipment_effects", Array.Empty<object>()));
+
         var battle = new Battle(_master, _chars, Status, types, _shop);
         _map["player/sync"] = battle.Sync;
         _map["player/clear_stages"] = battle.ClearStages;
@@ -56,6 +67,12 @@ public sealed class Handlers
         _map["present/index"] = rewards.Index;
         _map["present/history"] = rewards.History;
         _map["present/receive"] = rewards.Receive;
+
+        var survey = new Survey(_master, _chars, rewards);
+        _map["survey/index"] = survey.Index;
+        _map["survey/start"] = survey.Start;
+        _map["survey/end"] = survey.End;
+        _map["survey/use_bribe_item"] = survey.Bribe;
 
         var missions = new Missions(_master, rewards);
         _map["trophy/beginner_missions"] = missions.BeginnerMissions;
@@ -311,7 +328,9 @@ public sealed class Handlers
         var now = Time.Format(DateTime.UtcNow);
         return Obj(
             ("id", p.Id), ("t_player_id", p.Id), ("rank", p.Rank), ("exp", p.RankExp), ("exp_total", p.RankExpTotal),
-            ("shop_rank", _shop.MaxShopRank), ("survey_rank", 1u),
+            ("shop_rank", _shop.MaxShopRank),
+            // Must match an MSurveyRank row (the Fishing Fleet screen looks it up).
+            ("survey_rank", Math.Max(1u, p.SurveyRank)), ("survey_exp", p.SurveyExp), ("survey_exp_total", p.SurveyExpTotal),
             // Offline: AP is always full at the game's cap (stages cost 0 AP anyway, see MasterFix)
             // and boxes are at their maximum size (SyncDefineData *_space_max).
             ("act", 9999), ("act_max", 9999), ("act_at", now),

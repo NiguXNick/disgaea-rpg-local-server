@@ -241,10 +241,8 @@ public sealed class Shop(MasterData master)
             ("id", g.Id), ("t_player_id", p.Id), ("stage", g.Stage), ("pop", g.Pop), ("rarity_value", g.RarityValue),
             ("remake_count", 0), ("lv", g.Lv), ("lv_max", g.LvMax),
             ("hp", g.Hp), ("atk", g.Atk), ("def", g.Def), ("inte", g.Inte), ("res", g.Res), ("spd", g.Spd),
-            ("set_chara_id", 0UL), ("set_no", 0), ("lock_flg", false), ("all_clear_flg", g.Stage >= MaxStage(g.RarityValue)), ("breeding_stage", 0),
-            ("item_world_survey_end_at", ""), ("created_at", g.CreatedAt), ("innocent_auto_obey_flg", false), ("del_flg", false),
-            // Client-side caches, built lazily only when null.
-            ("m_OtherUserInnocentDatas", SchemaWriter.Nil), ("m_OtherWeaponOrEquipmentEffectDatas", SchemaWriter.Nil));
+            ("set_chara_id", g.SetCharaId), ("set_no", g.SetNo), ("lock_flg", false), ("all_clear_flg", g.Stage >= MaxStage(g.RarityValue)), ("breeding_stage", 0),
+            ("item_world_survey_end_at", ""), ("created_at", g.CreatedAt), ("innocent_auto_obey_flg", false), ("del_flg", false));
         d[g.Kind == Weapon ? "m_weapon_id" : "m_equipment_id"] = g.MId;
         return d;
     }
