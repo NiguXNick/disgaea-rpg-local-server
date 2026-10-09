@@ -164,6 +164,34 @@ public sealed partial class Battle(MasterData master, Characters chars, Func<Pla
     {
         if (p == null) return null;
         if (I(q, "battle_type") == BattleTypeItemWorld) return ItemWorldEnd(p, q, method);
+        return Finish(p, q, method, 1);
+    }
+
+    // battle/skip: skip_num wins at once (the button needs the stage's skip_flg and all three
+    // mission stars; tickets are unlimited offline, see Handlers.OfflineItems). Every enemy of a
+    // rolled set of waves counts as defeated in each run. drop_result.drop_list and
+    // after_t_stage_current must not be null; the client then reloads player/clear_stages.
+    public object? Skip(Player? p, JsonObject q, string method)
+    {
+        if (p == null) return null;
+        var stageId = U(q, "m_stage_id");
+        var times = Math.Clamp(I(q, "skip_num", 1), 1, 100);
+        var kills = new JsonArray();
+        for (var i = 0; i < times; i++)
+            foreach (var wave in Waves(stageId).Waves.OfType<Dictionary<string, object?>>())
+                foreach (var id in wave.Values.OfType<ulong>().Where(x => x != 0))
+                    kills.Add(new JsonObject { ["m_enemy_id"] = id });
+        var run = new JsonObject
+        {
+            ["m_stage_id"] = stageId, ["result"] = BattleResultWin, ["battle_exp_data"] = kills,
+            ["m_guest_character_id"] = U(q, "m_guest_character_id"),
+        };
+        Log.Info($"Battle skip: stage {stageId} x{times}.");
+        return Finish(p, run, method, times);
+    }
+
+    private object? Finish(Player p, JsonObject q, string method, int times)
+    {
         var stageId = U(q, "m_stage_id");
         var win = I(q, "result", 0) == BattleResultWin;
         var stage = master.Get("MStage", stageId);
@@ -177,21 +205,21 @@ public sealed partial class Battle(MasterData master, Characters chars, Func<Pla
         if (win)
         {
             var first = !p.StageClears.ContainsKey(stageId);
-            p.StageClears[stageId] = p.StageClears.GetValueOrDefault(stageId) + 1;
+            p.StageClears[stageId] = p.StageClears.GetValueOrDefault(stageId) + times;
             p.CurrentStage = stageId;
 
             var flags = MissionFlags(q["common_battle_result"]?.ToString());
             for (var i = 0; i < 3; i++) after[i] = before[i] || flags[i];
             p.StageMissions[stageId] = after;
 
-            playerExp = stage == null ? 0 : MasterData.F<long>(stage, "exp");
-            Defeated(p, q, s);
-            BonusGearDrop(p, playerExp, s.Drops, s.Weapons, s.Equipment);
+            playerExp = stage == null ? 0 : MasterData.F<long>(stage, "exp") * times;
+            Defeated(p, q, s, times);
+            for (var i = 0; i < times; i++) BonusGearDrop(p, playerExp / times, s.Drops, s.Weapons, s.Equipment);
             var rank = stage == null ? 1 : Math.Max(1, MasterData.F<int>(stage, "rank"));
-            quartz = (int)(QuartzPerRank * rank + playerExp / StageExpPerQuartz)
+            quartz = (int)(QuartzPerRank * rank + playerExp / times / StageExpPerQuartz) * times
                      + (first ? FirstClearQuartz : 0)
                      + MissionStarQuartz * Enumerable.Range(0, 3).Count(i => after[i] && !before[i]);
-            if (stage != null) Progress.Add(p, Progress.AreaBattle, 1, MasterData.F<ulong>(stage, "m_area_id"));
+            if (stage != null) Progress.Add(p, Progress.AreaBattle, times, MasterData.F<ulong>(stage, "m_area_id"));
 
             foreach (var c in deck) chars.AddExp(c, s.CharExp);
             AddPlayerExp(p, playerExp);
@@ -229,7 +257,7 @@ public sealed partial class Battle(MasterData master, Characters chars, Func<Pla
         public readonly HashSet<ulong> ChangedItems = new() { ItemIdHl };
     }
 
-    private void Defeated(Player p, JsonObject q, Spoils s)
+    private void Defeated(Player p, JsonObject q, Spoils s, int battles = 1)
     {
         var kills = (q["battle_exp_data"] as JsonArray ?? []).OfType<JsonObject>().ToList();
         foreach (var kill in kills)
@@ -242,9 +270,9 @@ public sealed partial class Battle(MasterData master, Characters chars, Func<Pla
             s.Hl += _rng.Next(min, max + 1) * HlMultiplier;
             RollDrops(p, enemy, s.Drops, s.Characters, s.Weapons, s.Equipment, s.ChangedItems);
         }
-        Progress.Add(p, Progress.Battle);
+        Progress.Add(p, Progress.Battle, battles);
         Progress.Add(p, Progress.Enemy, kills.Count);
-        Progress.Add(p, Progress.Act, DrpgServer.Missions.ActPerBattle);
+        Progress.Add(p, Progress.Act, DrpgServer.Missions.ActPerBattle * battles);
     }
 
     private static Dictionary<string, object?> DropResult(Player p, Spoils s) => Obj(

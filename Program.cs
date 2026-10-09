@@ -74,8 +74,8 @@ if (mr >= 0 && mr + 3 < args.Length)
     var limit = mr + 4 < args.Length && int.TryParse(args[mr + 4], out var n) ? n : 15;
     foreach (var row in md.All(args[mr + 1]).Where(r => args[mr + 3] == "*" || MasterData.F<string>(r, args[mr + 2]) == args[mr + 3]).Take(limit))
         Console.WriteLine(string.Join(" ", row.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
-            .Where(f => !f.FieldType.IsClass || f.FieldType == typeof(string))
-            .Select(f => $"{f.Name}={f.GetValue(row)}")));
+            .Where(f => !f.FieldType.IsClass || f.FieldType == typeof(string) || (f.FieldType.IsArray && f.FieldType.GetElementType()!.IsPrimitive))
+            .Select(f => $"{f.Name}={(f.GetValue(row) is Array a ? "[" + string.Join(",", a.Cast<object>()) + "]" : f.GetValue(row))}")));
     return;
 }
 

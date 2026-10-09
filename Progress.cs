@@ -12,6 +12,7 @@ public static class Progress
     public const string Enemy = "enemy";               // enemies defeated
     public const string Act = "act";                   // AP "used" (stages cost no AP offline, see Missions.ActPerBattle)
     public const string Party = "party";               // party edits saved
+    public const string Rebirth = "rebirth";           // reincarnations
     public const string Present = "present";           // gifts received
     public const string EquipBuy = "equip_buy";        // weapons/equipment bought (by rarity band 1/2/3 too)
     public const string HlSpent = "hl_spent";

@@ -21,8 +21,22 @@ public static class BootFiles
 
         app.MapGet("/Server/List.ini", () => Text(serverKey + "\n"));
 
+        // UI hooks (see Hooks.cs). hook_direct fetches <hook_j>_ver then <hook_j>; a missing _ver
+        // makes the client retry with delays, and a failed download falls back to its own file.
+        var hookFile = Hooks.Build(cfg, types);
+        if (hookFile != null)
+        {
+            app.MapGet("/hook/hook_j", () => Results.Bytes(hookFile, "application/octet-stream"));
+            app.MapGet("/hook/hook_j_ver", () => Text("1\n"));
+        }
+
         // Config.ReadText stops at the first blank line and throws on lines without '='.
-        app.MapGet($"/Server/{serverKey}.ini", () => Text(string.Join("\n",
+        app.MapGet($"/Server/{serverKey}.ini", () => Text(string.Join("\n", (hookFile == null ? [] : new[]
+        {
+            $"hook_j={b}/hook/hook_j",
+            "hook_direct=true",
+        }).Concat(new[]
+        {
             $"api={b}/",
             $"asset={b}/asset",
             $"master_bin={b}/master/master",
@@ -31,7 +45,8 @@ public static class BootFiles
             $"url_zip={b}/zip",
             $"config_sdk={b}/sdk/config_sdk.json",
             cfg.ClientLogAll ? "log=Log:ALL" : "log=Log:default,ErrorCheck,LogError",
-            "AutoSignin=false") + "\n"));
+            "AutoSignin=false",
+        })) + "\n"));
 
         // "Disable" makes the hotfix skip the Boltrend web login and use /signin with uuid+password.
         app.MapGet("/sdk/config_sdk.json", () => Text("""

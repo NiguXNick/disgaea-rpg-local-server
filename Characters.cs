@@ -16,7 +16,10 @@ public sealed class OwnedCharacter
     public int Res { get; set; }
     public int Spd { get; set; }
     public ulong LeaderSkillId { get; set; }
-    public ulong[] Commands { get; set; } = new ulong[4];
+    public ulong[] Commands { get; set; } = new ulong[4];        // equipped skills (slots 1..4)
+    public List<ulong> Learned { get; set; } = new();             // learned skills, append-only (row ids follow the order)
+    public int RebirthNum { get; set; }
+    public int Mana { get; set; }
     public string CreatedAt { get; set; } = "";
 }
 
@@ -70,47 +73,76 @@ public sealed class Characters(MasterData master)
         // screens (SortCommandController keys by command id) and slots stay empty.
         if (padSlots) while (list.Count < 4) list.Add(list[0]);
         c.Commands = list.Concat(Enumerable.Repeat(0UL, 4)).Take(4).ToArray();
+        Learn(c);
         return c;
     }
 
-    private static void ApplyStats(OwnedCharacter c, object m)
+    // Learned skills: MCharacterCommand rows learned by level (learn_type 1) up to the current
+    // level, plus whatever is equipped (every equipped skill needs a t_character_commands row).
+    public void Learn(OwnedCharacter c)
     {
-        int Stat(string name) => (int)Math.Ceiling(MasterData.F<double>(m, name + "_min") + MasterData.F<double>(m, name + "_per_lv") * (c.Lv - 1));
+        var byLevel = master.All("MCharacterCommand")
+            .Where(r => MasterData.F<ulong>(r, "m_character_id") == c.MCharacterId && MasterData.F<int>(r, "learn_type") == LearnTypeLevel
+                        && MasterData.F<int>(r, "lv") <= c.Lv)
+            .OrderBy(r => MasterData.F<int>(r, "lv")).ThenBy(r => MasterData.F<ulong>(r, "id"))
+            .Select(r => MasterData.F<ulong>(r, "m_command_id"));
+        foreach (var id in c.Commands.Where(x => x != 0).Concat(byLevel))
+            if (!c.Learned.Contains(id) && master.Get("MCommand", id) != null) c.Learned.Add(id);
+    }
+
+    private const int LearnTypeLevel = 1; // SyncDefineData.learn_type_lv
+
+    // CharacterManager.GetFixedParameter without status-up: the level cap / 100 is a multiplier
+    // (each reincarnation makes the character stronger at the same level).
+    public void ApplyStats(OwnedCharacter c)
+    {
+        var m = master.Get("MCharacter", c.MCharacterId);
+        if (m == null) return;
+        var cap = MaxLevel(c) / 100.0;
+        int Stat(string name) => (int)Math.Ceiling((MasterData.F<double>(m, name + "_min") + MasterData.F<double>(m, name + "_per_lv") * (c.Lv - 1)) * cap);
         c.Hp = Stat("hp"); c.Atk = Stat("atk"); c.Def = Stat("def"); c.Inte = Stat("inte"); c.Res = Stat("res");
         c.Spd = MasterData.F<int>(m, "spd_min");
     }
 
-    // Level cap without rebirths (SyncDefineData.rebirth_rise_lv).
-    internal const int MaxLevel = 100;
+    private void ApplyStats(OwnedCharacter c, object m) => ApplyStats(c);
 
-    // Adds exp and levels up with MCharacterLevel (need_exp of level L = exp to go from L-1 to L);
-    // stats are recomputed for the new level. Returns true on level up.
+    // Level cap: rebirth_rise_lv (100) more per reincarnation, up to character_lv_max (9999)
+    // (CharacterUtility.GetMaxLv).
+    internal const int RebirthRiseLv = 100, CharacterLvMax = 9999;
+    public static int MaxLevel(OwnedCharacter c) => Math.Clamp(RebirthRiseLv + c.RebirthNum * RebirthRiseLv, 1, CharacterLvMax);
+
+    // Adds exp and levels up with MCharacterLevel (need_exp of level L = exp to go from L-1 to L;
+    // levels already reached in an earlier life cost half). Stats are recomputed and skills learned.
     public bool AddExp(OwnedCharacter c, long exp)
     {
         if (exp <= 0) return false;
         var start = c.Lv;
+        var cap = MaxLevel(c);
         c.ExpTotal += exp;
         c.Exp += exp;
         var needs = master.All("MCharacterLevel").ToDictionary(r => MasterData.F<int>(r, "lv"), r => MasterData.F<long>(r, "need_exp"));
-        while (c.Lv < MaxLevel && needs.TryGetValue(c.Lv + 1, out var need) && need > 0 && c.Exp >= need)
+        long Need(int lv) => needs.TryGetValue(lv, out var n) ? (lv <= c.RebirthNum * RebirthRiseLv ? n / 2 : n) : 0;
+        while (c.Lv < cap && Need(c.Lv + 1) > 0 && c.Exp >= Need(c.Lv + 1))
         {
-            c.Exp -= need;
+            c.Exp -= Need(c.Lv + 1);
             c.Lv++;
         }
-        if (c.Lv >= MaxLevel) c.Exp = 0;
+        if (c.Lv >= cap) c.Exp = 0;
         if (c.Lv == start) return false;
-        var m = master.Get("MCharacter", c.MCharacterId);
-        if (m != null) ApplyStats(c, m);
+        ApplyStats(c);
+        Learn(c);
         return true;
     }
 
     // CharacterUserData as the client expects it (t_character_commands must match m_command_id_N).
     public static Dictionary<string, object?> ToWire(OwnedCharacter c, ulong playerId)
     {
-        var commands = c.Commands.Select((cmd, i) => (cmd, i)).Where(x => x.cmd != 0)
+        // One row per learned skill (never null; every equipped skill must have one).
+        var learned = c.Learned.Concat(c.Commands.Where(x => x != 0 && !c.Learned.Contains(x))).ToList();
+        var commands = learned.Select((cmd, i) => (cmd, i))
             .Select(x => (object?)new Dictionary<string, object?>
             {
-                ["id"] = c.Id * 10 + (ulong)x.i + 1,
+                ["id"] = c.Id * 1000 + (ulong)x.i + 1,
                 ["t_player_id"] = playerId,
                 ["t_character_id"] = c.Id,
                 ["m_command_id"] = x.cmd,
@@ -143,6 +175,8 @@ public sealed class Characters(MasterData master)
             ["m_command_id_3"] = c.Commands[2],
             ["m_command_id_4"] = c.Commands[3],
             ["m_character_retrofit_ids"] = Array.Empty<object>(),
+            ["rebirth_num"] = c.RebirthNum,
+            ["mana"] = c.Mana,
             ["created_at"] = c.CreatedAt,
             ["t_character_commands"] = commands,
             // The player's own characters must have null gear lists: the client then builds them

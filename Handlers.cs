@@ -61,6 +61,13 @@ public sealed class Handlers
         _map["battle/end"] = (p, q) => battle.End(p, q, "battle/end");
         _map["battle/story"] = (p, q) => battle.Story(p, q, "battle/story");
         _map["item_world/start"] = (p, q) => battle.ItemWorldStart(p, q, "item_world/start");
+        _map["battle/skip"] = (p, q) => battle.Skip(p, q, "battle/skip");
+        _map["battle/skip_parties"] = (p, q) => Obj(("skip_parties", Array.Empty<object>()));
+
+        var growth = new Growth(_master, _chars);
+        _map["character/rebirth"] = growth.Rebirth;
+        _map["player/change_chara_command"] = growth.ChangeCommands;
+        _map["player/update_command_new_off"] = growth.CommandNewOff;
         _map["player/abyss_gates"] = (p, q) => Obj(("t_abyss_gates", Array.Empty<object>()));
 
         var rewards = new Rewards(_master, _chars, _shop);
@@ -160,6 +167,7 @@ public sealed class Handlers
         {
             RepairCharacters(p);
             _shop.RepairGear(p);
+            OfflineItems(p);
         }
         if (_map.TryGetValue(method, out var h))
         {
@@ -168,6 +176,18 @@ public sealed class Handlers
         }
         result = null;
         return false;
+    }
+
+    // Skip tickets (MItem item_type 24) are unlimited offline, like AP: kept topped up.
+    private const int ItemTypeSkipTicket = 24, OfflineTickets = 999;
+    private List<ulong>? _skipTickets;
+
+    private void OfflineItems(Player p)
+    {
+        _skipTickets ??= _master.All("MItem").Where(r => MasterData.F<int>(r, "item_type") == ItemTypeSkipTicket)
+            .Select(r => MasterData.F<ulong>(r, "id")).ToList();
+        if (p.IsTutorial) return;
+        foreach (var id in _skipTickets) p.Items[id] = OfflineTickets;
     }
 
     // During the tutorial command slots must all be filled (see Characters.Create); afterwards
@@ -184,6 +204,7 @@ public sealed class Handlers
             var seen = new HashSet<ulong>();
             for (var i = 0; i < c.Commands.Length; i++)
                 if (c.Commands[i] != 0 && !seen.Add(c.Commands[i])) c.Commands[i] = 0;
+            _chars.Learn(c); // saves from before learned skills were tracked
         }
     }
 
@@ -346,7 +367,9 @@ public sealed class Handlers
     }
 
     internal static Dictionary<string, object?> Record(Player p) => Obj(
-        ("t_player_id", p.Id), ("play_day_num", 1), ("character_lv_max", 1),
+        ("t_player_id", p.Id), ("play_day_num", (int)Math.Max(1, Progress.Total(p, Progress.Login))),
+        ("character_lv_max", p.Characters.Select(c => c.Lv).DefaultIfEmpty(1).Max()),
+        ("rebirth_total", Progress.Total(p, Progress.Rebirth)),
         ("comeback_end_at", ""), ("last_healed_at", ""));
 
     private object? LoginUpdate(Player? p, JsonObject q)

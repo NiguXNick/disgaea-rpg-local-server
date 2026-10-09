@@ -111,7 +111,8 @@ public sealed class Missions(MasterData master, Rewards rewards)
             6 => Progress.Total(p, Progress.Battle),                         // battle_num
             8 => B(AllMissions(p, EpisodeStages(id, 1))),                    // easy_mission_complete
             10 => Progress.Total(p, Progress.Gacha),
-            11 when num <= Characters.MaxLevel => p.Characters.Select(c => (long)c.Lv).DefaultIfEmpty(0).Max(), // character_lv
+            11 => p.Characters.Select(c => (long)c.Lv).DefaultIfEmpty(0).Max(), // character_lv
+            21 => Progress.Total(p, Progress.Rebirth),                         // rebirth
             13 => Progress.Total(p, Progress.EquipBuy),
             14 => p.Gear.Select(g => (long)g.Lv).DefaultIfEmpty(0).Max(),     // equip_lv
             30 => Progress.Total(p, Progress.Party),                         // update_deck
@@ -275,6 +276,7 @@ public sealed class Missions(MasterData master, Rewards rewards)
     private long TrophyNow(Player p, int type, ulong id, Func<string, ulong, long> counter) => type switch
     {
         1 => counter(Progress.Login, 0),                                    // date (days logged in)
+        3 => counter(Progress.Rebirth, 0),                                  // rebirth
         8 or 9 or 10 => B(AllMissions(p, EpisodeStages(id, type - 7))),     // complete_mission easy/normal/hard
         11 or 12 or 13 => B(AllCleared(p, EpisodeStages(id, type - 10))),   // complete_episode easy/normal/hard
         14 => p.Rank,                                                       // player_rank

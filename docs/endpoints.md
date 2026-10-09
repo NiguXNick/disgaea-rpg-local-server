@@ -51,6 +51,31 @@ Everything not listed gets a well-formed default response (`RPC not implemented`
 | `item_world/start` | One floor per battle, floor = item `stage` + 1. `battle_type` must be 5, `m_stage_id` 0, `equipment_id`/`equipment_type` echoed, `stage` = floor (an MItemWorld id). The client has no Item World enemy table: waves are borrowed from a story stage whose `proper_level` is closest below item rank + floor (+20% on boss floors). No innocents yet (`t_innocent_id` 0). |
 | `battle/end` (`battle_type` 5) | Item `stage` = floor, `lv` from MWeaponEquipmentLevel (boss floors jump: floor 30 = Lv50, 60 = Lv100, 100 = Lv180), stats recomputed. Depth by rarity value: 30 / 60 / 100 floors (<40 / <70 / legendary). `after_t_record` must be filled; `after_t_weapon` or `after_t_equipment` carries the item; `obey_innocent`, `remove_t_innocent`, `breeding_t_item`, `stage_mission_after`, `after_t_stage_current` must be null. Quartz: 2 + floor/5, +10 on boss floors. |
 
+## Character growth (`Growth.cs`, `Characters.cs`)
+
+| Method | Notes |
+|---|---|
+| `character/rebirth` | Allowed at the level cap. Cost from MNecessaryRebirthMaterial (row for MCharacter.character_type and the next rebirth number: HL + up to 7 materials). Level back to 1, cap +100 (`clamp(100 + rebirth_num * 100, 1, 9999)`), +100 mana. Keys are `after_character` (not `after_t_character`), `after_t_items` (never null) and `after_t_record` (never null, replaces the client's record). |
+| Levels and stats | Levels already reached in an earlier life cost half the exp. Stats = `ceil((min + per_lv * (lv - 1)) * cap / 100)`: each reincarnation makes the character stronger at the same level. |
+| `player/change_chara_command` | `m_command_ids` = 4 slots (0 empty); returns the full character. "Learned" = the rows of `t_character_commands` (never null; every equipped skill needs a row). Skills with `learn_type` 1 are learned on level up. |
+| `player/update_command_new_off` | Echoes the character ("new" marks are not used offline) |
+
+## Battle skip (`Battle.cs`)
+
+| Method | Notes |
+|---|---|
+| `battle/skip` | `skip_num` wins at once, every enemy of the stage's waves defeated each run; same response as `battle/end` (`drop_result.drop_list` and `after_t_stage_current` never null). The button needs the stage's `skip_flg`, all 3 mission stars and a skip ticket: the item of `item_type` 24 whose `effect_value` lists the battle type (10002 for normal stages, 2401 for Dark Gates). Offline those tickets are kept at 999, like AP. |
+| `battle/skip_parties` | `{skip_parties: []}` |
+
+## UI hooks (`Hooks.cs`)
+
+The server config points `hook_j` at the server (`hook_direct=true`): it serves the installed
+`StreamingAssets/Data/hook_j` (XDCryptor: RC4 + gzip JSON) with extra entries appended, since the
+served file replaces the whole set. An `XDDLL:XD.Hook.XDHookActive` entry on `header/act_win`
+turns off the AP block of the top bar (value, gauge, timer, "+" button). Paths start at a
+GameObject with `XDPluginHookRoot`; `setting_key` `XD_Const_True` is always on. No game file is
+changed, and a failed download makes the client fall back to its own file.
+
 ## Equipping and gear presets (`Equipment.cs`)
 
 | Method | Notes |

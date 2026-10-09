@@ -8,8 +8,9 @@ actions. Grouped by feature, roughly in order of how much they matter offline:
 
 | Feature | RPCs | Notes |
 |---|---|---|
-| Skills | `player/change_chara_command`, `item/use_command_power_up`, `item/use_weapon_mastery_power_up` | |
-| Reincarnation (level cap above 100) | `character/rebirth`, `character/super_rebirth`, `character/auto_awakening` | Level is capped at 100 until this exists |
+| Skill levels, weapon mastery | `item/use_command_power_up`, `item/use_weapon_mastery_power_up` | Swapping skills works |
+| Skills learned with mana | | Only level-learned skills are added |
+| Super reincarnation, auto awakening | `character/super_rebirth`, `character/auto_awakening` | Normal reincarnation works |
 | Awakening, Nether Enhancement | `player/awakening`, `character/retrofit` | Retrofit screen crashes (NRE in `GetRetrofitNeedHl`) |
 | Mana, status up, potentials | `player/mana_assignment*`, `character/reset_mana`, `character/status_up`, `character/use_mana_potion`, `potential/*` | Potential screen crashes |
 | Selling characters | `character/sells` | |
@@ -28,7 +29,7 @@ actions. Grouped by feature, roughly in order of how much they matter offline:
 
 | Feature | RPCs | Notes |
 |---|---|---|
-| Battle skip / auto repeat | `battle/skip`, `battle/skip_parties`, `battle/skip_stages` | |
+| Dark Gate multi-skip | `battle/skip_stages` | Single-stage skip works |
 | Dark Gates, Abyss Gates | `player/gates`, `item/use_gate`, `item/use_abyss_gate` | |
 | Overlord's Tower, Ritual Training | `tower/start`, `player/tower`, `ritual_training/*` | |
 | Dark Assembly | `agenda/*`, `player/agendas` | |
@@ -44,7 +45,6 @@ actions. Grouped by feature, roughly in order of how much they matter offline:
 | Hospital, bingo prizes | `hospital/*`, `bingo/lottery`, `bingo/receive` | |
 | Profile and settings | `player/update_name`, `player/update_comment`, `player/update_setting`, `player/update_home_customize` | |
 | Friends | `friend/*` | Offline there are no other players |
-| Hiding the AP bar | | AP is never spent, but the bar still shows; could be done through `hook_j` |
 
 Not needed offline: `boltrend/*` (store, subscriptions, passes), `inherit/*` (account transfer),
 `system/version_*`, `adjust/add`, `questionnaire/*`, `webcast/*`, `player/update_device_token`.

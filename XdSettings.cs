@@ -8,16 +8,29 @@ namespace DrpgServer;
 // The RC4 key is read from the installed XDDLL.dll (FastCryptUtil.key_string), not stored here.
 public static class XdSettings
 {
-    public static string Read(GameTypes types, string file)
+    public static string Read(GameTypes types, string file) => Decode(types, File.ReadAllBytes(file));
+
+    // Same scheme for every XDCryptor file (settings, hook_j).
+    public static string Decode(GameTypes types, byte[] data)
     {
-        var key = types.Xd.GetType("XD.tool.FastCryptUtil")
-            ?.GetField("key_string", BindingFlags.NonPublic | BindingFlags.Static)
-            ?.GetRawConstantValue() as string
-            ?? throw new InvalidOperationException("Settings key not found in XDDLL.dll (unsupported game build?).");
-        var plain = Rc4(File.ReadAllBytes(file), Encoding.UTF8.GetBytes(key));
+        var plain = Rc4(data, Key(types));
         using var gz = new GZipStream(new MemoryStream(plain), CompressionMode.Decompress);
         return new StreamReader(gz, Encoding.UTF8).ReadToEnd();
     }
+
+    public static byte[] Encode(GameTypes types, string text)
+    {
+        using var ms = new MemoryStream();
+        using (var gz = new GZipStream(ms, CompressionLevel.Optimal, leaveOpen: true))
+            gz.Write(new UTF8Encoding(false).GetBytes(text));
+        return Rc4(ms.ToArray(), Key(types));
+    }
+
+    private static byte[] Key(GameTypes types) => Encoding.UTF8.GetBytes(
+        types.Xd.GetType("XD.tool.FastCryptUtil")
+            ?.GetField("key_string", BindingFlags.NonPublic | BindingFlags.Static)
+            ?.GetRawConstantValue() as string
+        ?? throw new InvalidOperationException("Settings key not found in XDDLL.dll (unsupported game build?)."));
 
     // "key=value" lines; parsing stops at the first blank line like XD.tool.Config.ReadText.
     public static string? Value(string text, string name) => text.Split('\n')
