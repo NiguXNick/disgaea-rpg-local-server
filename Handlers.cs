@@ -241,7 +241,9 @@ public sealed class Handlers
             ("after_t_campaign_login_bonuses", Nil),
             ("login_roulette_items", Nil),
             ("memorial_login_bonuses", Nil),
-            ("help_reward", Nil));
+            ("help_reward", Nil),
+            // Same for the "items were converted" popup (HomeEngine.ConvertItemPopupProcess).
+            ("converted_item_data", Nil));
     }
 
     private object? Decks(Player? p, JsonObject q)
