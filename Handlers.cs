@@ -38,6 +38,17 @@ public sealed class Handlers
         _map["player/characters"] = (p, q) => p?.Characters.Select(c => (object?)Characters.ToWire(c, p.Id)).ToList();
         _map["player/decks"] = Decks;
         _map["login/update"] = LoginUpdate;
+        // One entry per owned character. PlayerManager.GetCharaMissionFromApi starts a loading
+        // indicator and only clears it after one trophy/character_missions request per batch of
+        // collection entries; with an empty collection no request is made and it never clears.
+        _map["player/character_collections"] = (p, q) => p?.Characters
+            .GroupBy(c => c.MCharacterId)
+            .Select((g, i) => (object?)Obj(
+                ("id", (ulong)(i + 1)),
+                ("m_character_id", g.Key),
+                ("max_lv", g.Max(c => c.Lv)),
+                ("story_status", Array.Empty<object>())))
+            .ToList();
         // No raid in progress. An empty object here makes GetRaid.RequestCurrent load raid 0 and
         // never finish, which keeps the home screen's loading indicator up.
         _map["raid/current"] = (p, q) => Obj(("current_t_raid_status", Nil));

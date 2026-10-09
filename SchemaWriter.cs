@@ -114,7 +114,9 @@ public static class SchemaWriter
                 // (e.g. PlayerBadgeHomeData.new_friend), so unset ones go out as empty objects.
                 // after_* fields are state updates the client applies as-is: nil means "unchanged",
                 // while an empty object would wipe that state (e.g. after_t_status -> kingdom_rank 0).
-                if (value == null && !name.StartsWith("after_") && FillsWithEmpty(field.FieldType, depth))
+                // Client-side caches (m_MasterSurveyRankData, _foo) must stay null so the client fills them.
+                var clientCache = name.StartsWith('_') || (name.Length > 2 && name.StartsWith("m_") && char.IsUpper(name[2]));
+                if (value == null && !name.StartsWith("after_") && !clientCache && FillsWithEmpty(field.FieldType, depth))
                     value = new Dictionary<string, object?>();
             }
 

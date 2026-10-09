@@ -8,6 +8,10 @@ public sealed class ServerConfig
     public required string GameDir { get; init; }
     public required string DataDir { get; init; }
 
+    // Turns on every XD.tool.Debug tag in the client. Many client exceptions (callbacks, hotfix
+    // code) are only logged through tagged LogException calls, so without this they're silent.
+    public bool ClientLogAll { get; init; }
+
     public string BaseUrl => $"http://127.0.0.1:{Port}";
     public string StreamingAssets => Path.Combine(GameDir, "DISGAEA RPG_Data", "StreamingAssets");
 
@@ -27,6 +31,7 @@ public sealed class ServerConfig
             Port = int.Parse(Arg("--port") ?? "8765"),
             GameDir = gameDir,
             DataDir = dataDir,
+            ClientLogAll = args.Contains("--client-log-all"),
         };
     }
 }

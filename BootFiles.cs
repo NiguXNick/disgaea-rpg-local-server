@@ -23,6 +23,7 @@ public static class BootFiles
             $"url_file={b}/file",
             $"url_zip={b}/zip",
             $"config_sdk={b}/sdk/config_sdk.json",
+            cfg.ClientLogAll ? "log=Log:ALL" : "log=Log:default,ErrorCheck,LogError",
             "AutoSignin=false") + "\n"));
 
         // "Disable" makes the hotfix skip the Boltrend web login and use /signin with uuid+password.
