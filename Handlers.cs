@@ -250,7 +250,9 @@ public sealed class Handlers
             ("after_t_record", Record(p)),
             ("after_t_login_bonuses", Nil),
             ("after_present_count", 0),
-            ("after_t_passports", Nil),
+            // Must be a list (even empty): HomeEngine only creates m_FinishedPassportIdList when it
+            // isn't null, and PassportAttentionProcess dereferences that list unconditionally.
+            ("after_t_passports", Array.Empty<object>()),
             ("after_t_campaign_login_bonuses", Nil),
             ("login_roulette_items", Nil),
             ("memorial_login_bonuses", Nil),
