@@ -42,7 +42,7 @@ public static class SchemaWriter
             return;
         }
 
-        // Null strings go out as "" — the real server always sent strings and the client rarely null-checks.
+        // Null strings go out as "": the real server always sent strings and the client rarely null-checks.
         if (type == typeof(string)) { w.Write(data == null ? "" : Convert.ToString(data, System.Globalization.CultureInfo.InvariantCulture)); return; }
         if (type == typeof(bool)) { w.Write(data != null && Convert.ToBoolean(data)); return; }
         if (type == typeof(int)) { w.Write(ToInt<int>(data)); return; }

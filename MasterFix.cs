@@ -10,8 +10,8 @@ namespace DrpgServer;
 //
 // The format has no field metadata (int32 count, then each record's [SerializeField] fields in
 // ReflectionTool.GetFieldWithAttribute order, "#EOF" at the end). For each table the game's own
-// reader rejects, we search for the smallest set of edits — fields missing from the old file and
-// obsolete fields present only in it — that makes the file parse exactly, then rewrite it in the
+// reader rejects, we search for the smallest set of edits (fields missing from the old file and
+// obsolete fields present only in it) that makes the file parse exactly, then rewrite it in the
 // current layout (defaults for new fields, obsolete ones dropped). Originals are kept as *.bak.
 public sealed class MasterFix
 {

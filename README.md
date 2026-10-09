@@ -59,6 +59,11 @@ To undo everything: `powershell -ExecutionPolicy Bypass -File tools\restore-game
   `%USERPROFILE%\AppData\LocalLow\Boltrend\DISGAEA RPG\Boltrend\XDMaster` (originals kept as `*.bak`).
 - **Saves:** one JSON file per account under `bin/.../save/players/`.
 
+## Developer documentation
+
+See [`docs/`](docs/README.md) for how the client works, the protocol, the serialisation rules,
+master data, every implemented endpoint and how to debug.
+
 ## Layout
 
 | File | Purpose |
