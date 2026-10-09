@@ -112,7 +112,10 @@ public static class SchemaWriter
                 if (value != null && !NeedsValue(field.FieldType) && !field.FieldType.IsValueType) value = null;
                 // The live server always sent nested objects and the client rarely null-checks them
                 // (e.g. PlayerBadgeHomeData.new_friend), so unset ones go out as empty objects.
-                if (value == null && FillsWithEmpty(field.FieldType, depth)) value = new Dictionary<string, object?>();
+                // after_* fields are state updates the client applies as-is: nil means "unchanged",
+                // while an empty object would wipe that state (e.g. after_t_status -> kingdom_rank 0).
+                if (value == null && !name.StartsWith("after_") && FillsWithEmpty(field.FieldType, depth))
+                    value = new Dictionary<string, object?>();
             }
 
             inner.Write(name);

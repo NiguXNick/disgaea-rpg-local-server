@@ -37,6 +37,7 @@ public sealed class Handlers
         _map["player/index"] = PlayerIndex;
         _map["player/characters"] = (p, q) => p?.Characters.Select(c => (object?)Characters.ToWire(c, p.Id)).ToList();
         _map["player/decks"] = Decks;
+        _map["login/update"] = LoginUpdate;
         // RegularDataManager.UpdateAgendaBadge dereferences new_agenda without a null check.
         _map["player/badges"] = (p, q) => Obj(("new_agenda", Obj()));
     }
@@ -180,22 +181,50 @@ public sealed class Handlers
     private object? PlayerIndex(Player? p, JsonObject q)
     {
         if (p == null) return null;
-        var leader = p.Deck.Count > 0 ? p.Character(p.Deck[0]) : p.Characters.FirstOrDefault();
         var now = Time.Format(DateTime.UtcNow);
         return Obj(
             ("player_adjusts", Array.Empty<object>()),
             ("profile", Profile(p)),
-            ("record", Obj(("id", p.Id), ("t_player_id", p.Id))),
+            ("record", Record(p)),
             ("player_setting", Obj(("id", p.Id), ("created_at", p.CreatedAt), ("updated_at", now))),
-            ("status", Obj(
-                ("id", p.Id), ("t_player_id", p.Id), ("rank", 1), ("exp", 0L), ("exp_total", 0L),
-                ("act", 100), ("act_max", 100), ("act_at", now),
-                ("character_max", 200), ("weapon_max", 200), ("equipment_max", 200), ("innocent_store_max", 200),
-                ("deck_no", 1), ("kingdom_rank", StartKingdomRank),
-                ("favorite_char_id", leader?.Id ?? 0), ("favorite_m_char_id", leader?.MCharacterId ?? 0),
-                ("agenda_confirm_at", now), ("last_free_gacha_at", ""), ("verify_age_date", ""))),
+            ("status", Status(p)),
             ("act_give_count", Obj()),
             ("player_arena", Obj(("id", p.Id), ("act_at", now))));
+    }
+
+    // Every response that carries after_t_status replaces the client's whole status, so it must
+    // always be the real one (a blank one resets kingdom_rank to 0 and breaks the home screen).
+    private Dictionary<string, object?> Status(Player p)
+    {
+        var leader = p.Deck.Count > 0 ? p.Character(p.Deck[0]) : p.Characters.FirstOrDefault();
+        var now = Time.Format(DateTime.UtcNow);
+        return Obj(
+            ("id", p.Id), ("t_player_id", p.Id), ("rank", 1), ("exp", 0L), ("exp_total", 0L),
+            ("shop_rank", 1), ("survey_rank", 1u),
+            ("act", 100), ("act_max", 100), ("act_at", now),
+            ("character_max", 200), ("weapon_max", 200), ("equipment_max", 200), ("innocent_store_max", 200),
+            ("deck_no", 1), ("kingdom_rank", StartKingdomRank),
+            ("favorite_char_id", leader?.Id ?? 0), ("favorite_m_char_id", leader?.MCharacterId ?? 0),
+            ("agenda_confirm_at", now), ("last_free_gacha_at", ""), ("verify_age_date", ""));
+    }
+
+    private static Dictionary<string, object?> Record(Player p) => Obj(
+        ("t_player_id", p.Id), ("play_day_num", 1), ("character_lv_max", 1),
+        ("comeback_end_at", ""), ("last_healed_at", ""));
+
+    private object? LoginUpdate(Player? p, JsonObject q)
+    {
+        if (p == null) return null;
+        return Obj(
+            ("after_t_status", Status(p)),
+            ("after_t_record", Record(p)),
+            ("after_t_login_bonuses", Array.Empty<object>()),
+            ("after_present_count", 0),
+            ("after_t_passports", Array.Empty<object>()),
+            ("after_t_campaign_login_bonuses", Array.Empty<object>()),
+            ("login_roulette_items", Array.Empty<object>()),
+            ("memorial_login_bonuses", Array.Empty<object>()),
+            ("help_reward", Nil));
     }
 
     private object? Decks(Player? p, JsonObject q)

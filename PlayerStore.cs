@@ -69,9 +69,10 @@ public sealed class PlayerStore
         lock (_gate) File.WriteAllText(FileFor(p.Uuid), JsonSerializer.Serialize(p, Json));
     }
 
+    // Account names are case-insensitive ("Niguxnick" and "niguxnick" are the same save).
     private string FileFor(string uuid)
     {
-        var safe = string.Concat(uuid.Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' ? c : '_'));
+        var safe = string.Concat(uuid.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' ? c : '_'));
         return Path.Combine(_dir, (safe.Length == 0 ? "_" : safe) + ".json");
     }
 }
