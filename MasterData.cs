@@ -46,7 +46,7 @@ public sealed class MasterData
             _rows[table] = rows;
             _byId[table] = new Dictionary<ulong, object>();
             foreach (var r in rows) _byId[table].TryAdd(F<ulong>(r, "id"), r);
-            Log.Info($"Master {table}: {rows.Count} registros.");
+            Log.Info($"Master {table}: {rows.Count} rows.");
         }
     }
 }

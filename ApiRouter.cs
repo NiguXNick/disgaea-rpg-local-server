@@ -29,7 +29,7 @@ public sealed class ApiRouter
         var ivHeader = req.Headers["X-Crypt-Iv"].ToString();
         if (string.IsNullOrEmpty(ivHeader))
         {
-            Log.Warn($"Requisição sem X-Crypt-Iv: {req.Method} {req.Path}");
+            Log.Warn($"Request without X-Crypt-Iv: {req.Method} {req.Path}");
             ctx.Response.StatusCode = 404;
             return;
         }
@@ -66,7 +66,7 @@ public sealed class ApiRouter
                 break;
 
             default:
-                Log.Warn($"Rota REST desconhecida: {req.Path}");
+                Log.Warn($"Unknown REST route: {req.Path}");
                 payload = Plain(new Dictionary<string, object?>());
                 break;
         }
@@ -79,10 +79,10 @@ public sealed class ApiRouter
     {
         // Local server: the account name only picks a save file; the password is ignored.
         var uuid = Str(body, "uuid") ?? Str(body, "openId");
-        if (string.IsNullOrWhiteSpace(uuid)) uuid = "jogador";
+        if (string.IsNullOrWhiteSpace(uuid)) uuid = "player";
         var password = Str(body, "password") ?? "";
         var (player, isNew) = _players.Login(uuid, password);
-        Log.Info($"Login: '{uuid}' ({(isNew ? "conta nova" : "conta existente")})");
+        Log.Info($"Login: '{uuid}' ({(isNew ? "new account" : "existing account")})");
         return new Dictionary<string, object?>
         {
             ["session_id"] = _players.OpenSession(player),
@@ -103,13 +103,13 @@ public sealed class ApiRouter
         object? result;
         var known = _handlers.TryHandle(method, player, prms, out result);
         if (!known)
-            Log.Warn($"RPC sem implementação (resposta padrão): {method} {prmsJson}");
+            Log.Warn($"RPC not implemented (default response): {method} {prmsJson}");
         else
             Log.Info($"RPC {method} {prmsJson}");
 
         _types.ResultTypes.TryGetValue(method, out var resultType);
         if (resultType == null)
-            Log.Error($"Tipo de resposta desconhecido para {method}; enviando result=nil.");
+            Log.Error($"Unknown response type for {method}; sending result=nil.");
 
         var buffer = new ArrayBufferWriter<byte>();
         var w = new MessagePackWriter(buffer);
@@ -152,7 +152,7 @@ public sealed class ApiRouter
         }
         catch (Exception e)
         {
-            Log.Error($"Corpo da requisição ilegível: {e.Message}");
+            Log.Error($"Unreadable request body: {e.Message}");
             return new();
         }
     }

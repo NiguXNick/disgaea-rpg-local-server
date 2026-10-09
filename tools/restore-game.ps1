@@ -9,9 +9,9 @@ $ini = Join-Path $GameDir "DISGAEA RPG_Data\StreamingAssets\settings\config_serv
 if (Test-Path "$ini.original") {
     Copy-Item "$ini.original" $ini -Force
     Remove-Item "$ini.original"
-    Write-Host "config_server.ini original restaurado."
+    Write-Host "Original config_server.ini restored."
 } else {
-    Write-Host "Nenhum backup de config_server.ini encontrado."
+    Write-Host "No config_server.ini backup found."
 }
 
 $master = Join-Path $env:USERPROFILE "AppData\LocalLow\Boltrend\DISGAEA RPG\Boltrend\XDMaster"
@@ -20,4 +20,4 @@ foreach ($b in $baks) {
     Copy-Item $b.FullName ($b.FullName -replace '\.bak$', '') -Force
     Remove-Item $b.FullName
 }
-Write-Host "$(@($baks).Count) arquivos de master data restaurados."
+Write-Host "$(@($baks).Count) master data files restored."

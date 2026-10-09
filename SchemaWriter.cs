@@ -30,7 +30,7 @@ public static class SchemaWriter
     {
         if (depth > MaxDepth && !type.IsPrimitive && type != typeof(string))
         {
-            Log.Warn($"Profundidade máxima em {path[..Math.Min(path.Length, 300)]}; enviando vazio.");
+            Log.Warn($"Max depth at {path[..Math.Min(path.Length, 300)]}; sending empty.");
             if (type.IsArray) w.WriteArrayHeader(0);
             else if (IsList(type)) { w.WriteMapHeader(2); w.Write("_items"); w.WriteArrayHeader(0); w.Write("_size"); w.Write(0); }
             else w.WriteNil();
@@ -93,7 +93,7 @@ public static class SchemaWriter
         {
             foreach (var key in dict.Keys)
                 if (!fields.Any(f => f.Name == key))
-                    Log.Warn($"Campo '{key}' não existe em {type.Name} ({path}); ignorado.");
+                    Log.Warn($"Field '{key}' does not exist in {type.Name} ({path}); dropped.");
         }
 
         var buffer = new ArrayBufferWriter<byte>();

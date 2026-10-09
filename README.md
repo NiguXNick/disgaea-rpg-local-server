@@ -1,79 +1,75 @@
-# Disgaea RPG — servidor local (offline)
+# Disgaea RPG — local (offline) server
 
-Servidor local para a versão global do **DISGAEA RPG** na Steam, cujos servidores oficiais
-(Boltrend) foram desligados em 12/05/2023. Com ele o jogo volta a abrir e é jogado offline,
-com o progresso salvo no seu PC.
+A local replacement server for the global Steam release of **DISGAEA RPG**, whose official
+servers (Boltrend) shut down on 2023-05-12. With it the game boots again and can be played
+offline, with progress saved on your own PC.
 
-> *English: a local replacement server for the Steam/global release of DISGAEA RPG, whose
-> official servers shut down on 2023-05-12. Requires your own copy of the game.*
+**Status: work in progress.** Working: boot, login, the full tutorial and loading the home
+screen. Stages, gacha, equipment and the rest of the game are still being implemented.
 
-**Status: em desenvolvimento.** Funciona: boot, login, tutorial completo e carregamento da
-tela inicial. Fases, gacha, equipamentos e o resto do jogo ainda estão sendo implementados.
+This repository contains **no game files** (executables, DLLs, assets or master data).
+You need the game installed through Steam.
 
-Este repositório **não contém nenhum arquivo do jogo** (executáveis, DLLs, assets ou master
-data). Você precisa ter o jogo instalado pela Steam.
+## Requirements
 
-## Requisitos
-
-- Windows, com o DISGAEA RPG instalado pela Steam
-- Steam aberto (pode estar em modo offline) — o jogo fecha na abertura sem ele
+- Windows, with DISGAEA RPG installed through Steam
+- Steam running (offline mode is fine) — the game quits at startup without it
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 
-## Como usar
+## Usage
 
-1. **Redirecione o jogo para o servidor local** (uma vez só). No PowerShell, na pasta do repositório:
+1. **Point the game at the local server** (once). In PowerShell, from the repository folder:
    ```powershell
    powershell -ExecutionPolicy Bypass -File tools\setup-game.ps1
    ```
-   Se o jogo não estiver na pasta padrão da Steam, passe `-GameDir "D:\...\DISGAEA RPG"`.
-   O `config_server.ini` original fica salvo como `config_server.ini.original`.
+   If the game is not in the default Steam folder, add `-GameDir "D:\...\DISGAEA RPG"`.
+   The original `config_server.ini` is kept as `config_server.ini.original`.
 
-2. **Inicie o servidor** e deixe a janela aberta enquanto joga:
+2. **Start the server** and keep it running while you play:
    ```powershell
    dotnet run
    ```
-   Opções: `--port 8765`, `--game "<pasta do jogo>"`, `--data "<pasta dos saves>"`.
+   Options: `--port 8765`, `--game "<game folder>"`, `--data "<save folder>"`.
 
-3. **Abra o jogo pela Steam.** Na tela de login digite qualquer nome de conta — ele só escolhe
-   qual save usar (a senha é ignorada). O jogo lembra a última conta.
+3. **Launch the game from Steam.** On the login window type any account name — it only picks
+   which save to use (the password is ignored). The game remembers the last account.
 
-Para desfazer tudo: `powershell -ExecutionPolicy Bypass -File tools\restore-game.ps1`.
+To undo everything: `powershell -ExecutionPolicy Bypass -File tools\restore-game.ps1`.
 
-## Como funciona
+## How it works
 
-- **Redirecionamento:** `StreamingAssets/settings/*.ini` são gzip + RC4. O `config_server.ini`
-  passa a apontar para `http://127.0.0.1:8765/Server`, de onde o servidor entrega a lista de
-  servidores e a configuração (`api`, `asset`, `master_bin`, …).
-- **Login:** a config do SDK é servida com `"status": "Disable"`, o que faz o próprio jogo trocar o
-  login web da Boltrend por uma janela simples de conta/senha (`/signin`).
-- **Protocolo:** requisições AES-256-CBC + MessagePack (`/version_check`, `/signin`, `/rpc` em
-  JSON-RPC). O cliente desserializa as respostas de forma muito estrita (chave desconhecida = erro,
-  largura de inteiro importa, `List<T>` vira `{_items, _size}`), então o servidor carrega o
-  `Assembly-CSharp.dll` **da sua instalação** por reflexão e monta cada resposta exatamente no
-  tipo C# que o cliente espera. `methods.tsv` mapeia métodos RPC genéricos para esses tipos.
-- **Master data:** a master data que vem na instalação é ~1 ano mais antiga que o código 3.2.10
-  (o servidor oficial sempre enviava uma atualizada). Na inicialização o servidor detecta os campos
-  que faltam em cada tabela e reescreve os arquivos extraídos em
-  `%USERPROFILE%\AppData\LocalLow\Boltrend\DISGAEA RPG\Boltrend\XDMaster` (originais em `*.bak`).
-- **Saves:** um JSON por conta em `bin/.../save/players/`.
+- **Redirect:** `StreamingAssets/settings/*.ini` are gzip + RC4. `config_server.ini` is rewritten
+  to point at `http://127.0.0.1:8765/Server`, from which the server hands out the server list and
+  the server config (`api`, `asset`, `master_bin`, …).
+- **Login:** the SDK config is served with `"status": "Disable"`, which makes the game itself
+  replace the Boltrend web login with a simple account/password window (`/signin`).
+- **Protocol:** AES-256-CBC + MessagePack requests (`/version_check`, `/signin`, and JSON-RPC over
+  `/rpc`). The client deserialises responses very strictly (an unknown key is an error, integer
+  widths matter, `List<T>` is read as `{_items, _size}`), so the server loads the
+  `Assembly-CSharp.dll` **from your installation** via reflection and shapes every response exactly
+  like the C# type the client expects. `methods.tsv` maps generic RPC methods to those types.
+- **Master data:** the master data shipped with the install is about a year older than the 3.2.10
+  client code (the official server always sent an up-to-date copy). On startup the server works out
+  which fields each table is missing and rewrites the extracted files in
+  `%USERPROFILE%\AppData\LocalLow\Boltrend\DISGAEA RPG\Boltrend\XDMaster` (originals kept as `*.bak`).
+- **Saves:** one JSON file per account under `bin/.../save/players/`.
 
-## Estrutura
+## Layout
 
-| Arquivo | Papel |
+| File | Purpose |
 |---|---|
-| `BootFiles.cs` | List.ini, config do servidor, config do SDK, CDN de assets local |
-| `ApiRouter.cs` | criptografia, `/version_check`, `/signin`, despacho do `/rpc` |
-| `Handlers.cs` | lógica dos métodos RPC (tutorial, dados do jogador, …) |
-| `GameTypes.cs` / `SchemaWriter.cs` | tipos do cliente e serialização no formato exato |
-| `MasterFix.cs` / `MasterData.cs` | atualização e leitura da master data |
-| `Characters.cs`, `PlayerStore.cs` | personagens e saves |
-| `tools/` | scripts para redirecionar/restaurar o jogo |
+| `BootFiles.cs` | List.ini, server config, SDK config, local asset CDN |
+| `ApiRouter.cs` | encryption, `/version_check`, `/signin`, `/rpc` dispatch |
+| `Handlers.cs` | RPC method logic (tutorial, player data, …) |
+| `GameTypes.cs` / `SchemaWriter.cs` | client types and exact-shape serialisation |
+| `MasterFix.cs` / `MasterData.cs` | master data upgrade and lookups |
+| `Characters.cs`, `PlayerStore.cs` | characters and save files |
+| `tools/` | scripts to redirect / restore the game |
 
-Métodos RPC ainda não implementados recebem uma resposta padrão bem-formada e aparecem no log
-como `RPC sem implementação`.
+RPC methods that are not implemented yet get a well-formed default response and show up in the
+log as `RPC not implemented`.
 
-## Aviso
+## Disclaimer
 
-Projeto de preservação, sem fins lucrativos e sem afiliação com Nippon Ichi Software,
-Forward Works ou Boltrend. DISGAEA é marca de seus respectivos donos. Use apenas com uma cópia
-legítima do jogo.
+Non-commercial preservation project, not affiliated with Nippon Ichi Software, Forward Works or
+Boltrend. DISGAEA is a trademark of its respective owners. Use only with a legitimate copy of the game.

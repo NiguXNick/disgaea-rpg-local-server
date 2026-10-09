@@ -15,11 +15,13 @@ public sealed class Handlers
     private static readonly ulong[] TutorialChoices = [10001, 30001, 10009, 10014];
 
     private readonly Characters _chars;
+    private readonly MasterData _master;
     private readonly Dictionary<string, Func<Player?, JsonObject, object?>> _map = new();
 
     public Handlers(GameTypes types, PlayerStore players)
     {
-        _chars = new Characters(new MasterData(types));
+        _master = new MasterData(types);
+        _chars = new Characters(_master);
 
         _map["player/add"] = (p, q) => Obj();
         _map["app/constants"] = (p, q) => null; // SyncDefineData defaults come from the class itself
@@ -35,7 +37,14 @@ public sealed class Handlers
         _map["player/index"] = PlayerIndex;
         _map["player/characters"] = (p, q) => p?.Characters.Select(c => (object?)Characters.ToWire(c, p.Id)).ToList();
         _map["player/decks"] = Decks;
+        // RegularDataManager.UpdateAgendaBadge dereferences new_agenda without a null check.
+        _map["player/badges"] = (p, q) => Obj(("new_agenda", Obj()));
     }
+
+    // InnocentVillageUtility looks the player's kingdom rank up in MKingdomRank and crashes the
+    // home screen (footer badges) when there's no matching row, e.g. rank 0.
+    private int StartKingdomRank =>
+        _master.All("MKingdomRank").Select(r => MasterData.F<int>(r, "kingdom_rank")).DefaultIfEmpty(1).Min();
 
     public bool TryHandle(string method, Player? p, JsonObject prms, out object? result)
     {
@@ -113,7 +122,7 @@ public sealed class Handlers
                     break;
             }
             p.TutorialStep = step;
-            Log.Info($"Tutorial: passo {step}{(p.IsTutorial ? "" : " (concluído)")}");
+            Log.Info($"Tutorial: step {step}{(p.IsTutorial ? "" : " (finished)")}");
         }
 
         var heroM = p.Character(1)?.MCharacterId;
@@ -182,7 +191,7 @@ public sealed class Handlers
                 ("id", p.Id), ("t_player_id", p.Id), ("rank", 1), ("exp", 0L), ("exp_total", 0L),
                 ("act", 100), ("act_max", 100), ("act_at", now),
                 ("character_max", 200), ("weapon_max", 200), ("equipment_max", 200), ("innocent_store_max", 200),
-                ("deck_no", 1),
+                ("deck_no", 1), ("kingdom_rank", StartKingdomRank),
                 ("favorite_char_id", leader?.Id ?? 0), ("favorite_m_char_id", leader?.MCharacterId ?? 0),
                 ("agenda_confirm_at", now), ("last_free_gacha_at", ""), ("verify_age_date", ""))),
             ("act_give_count", Obj()),

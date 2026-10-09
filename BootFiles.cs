@@ -73,7 +73,7 @@ public static class BootFiles
         }
         else
         {
-            Log.Warn($"StreamingAssets/windows não encontrado em {windows}; downloads de assets vão falhar.");
+            Log.Warn($"StreamingAssets/windows not found at {windows}; asset downloads will fail.");
         }
     }
 

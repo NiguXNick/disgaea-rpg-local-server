@@ -34,7 +34,7 @@ public sealed class Characters(MasterData master)
         };
         if (m == null)
         {
-            Log.Warn($"Personagem {mCharacterId} não existe na master; usando status genéricos.");
+            Log.Warn($"Character {mCharacterId} is not in the master data; using generic stats.");
             c.Rarity = rarity ?? 1;
             c.Hp = 100; c.Atk = 30; c.Def = 30; c.Inte = 30; c.Res = 30; c.Spd = 30;
             return c;
@@ -62,7 +62,7 @@ public sealed class Characters(MasterData master)
         var list = own.Concat(retrofit).Distinct().Take(4).ToList();
         if (list.Count == 0)
         {
-            Log.Warn($"Personagem {mCharacterId}: nenhuma habilidade na master.");
+            Log.Warn($"Character {mCharacterId}: no commands in the master data.");
             c.Commands = new ulong[4];
             return c;
         }

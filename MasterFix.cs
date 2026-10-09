@@ -79,17 +79,17 @@ public sealed class MasterFix
                 }
             }
             if (fixedCount > 0 || failed > 0)
-                Log.Info($"Master data: {fixedCount} arquivos atualizados, {failed} sem correção automática.");
+                Log.Info($"Master data: {fixedCount} files upgraded, {failed} could not be fixed automatically.");
         }
     }
 
     // Diagnostic: fix only one table, with timing.
     public void ApplyTable(string table)
     {
-        if (!_tables.TryGetValue(table, out var type)) { Log.Error($"Tabela desconhecida: {table}"); return; }
+        if (!_tables.TryGetValue(table, out var type)) { Log.Error($"Unknown table: {table}"); return; }
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var (ok, bad) = FixTable(table, Directory.GetFiles(Dir, table + "_*.bin"), type);
-        Log.Info($"{table}: {ok} corrigidos, {bad} falhas em {sw.Elapsed.TotalSeconds:f1}s");
+        Log.Info($"{table}: {ok} fixed, {bad} failed in {sw.Elapsed.TotalSeconds:f1}s");
     }
 
     private readonly record struct Slot(int Field, Type Type); // Field = -1 for obsolete data
@@ -104,7 +104,7 @@ public sealed class MasterFix
         var fields = Fields(type);
         if (!fields.All(f => Supported(f.FieldType, 0)))
         {
-            Log.Warn($"Master {table}: tipo de campo não suportado; ignorado.");
+            Log.Warn($"Master {table}: unsupported field type; skipped.");
             return (0, broken.Count);
         }
         var types = fields.Select(f => f.FieldType).ToArray();
@@ -114,7 +114,7 @@ public sealed class MasterFix
         if (KnownMissing.TryGetValue(table, out var knownNames))
         {
             var missing = knownNames.Select(n => Array.IndexOf(_names, n)).ToArray();
-            if (missing.Any(i => i < 0)) { Log.Warn($"Master {table}: layout conhecido não confere com a classe."); return (0, broken.Count); }
+            if (missing.Any(i => i < 0)) { Log.Warn($"Master {table}: known layout does not match the class."); return (0, broken.Count); }
             // The hand-made layout, then the same with one field more or one field less missing.
             var variants = new List<int[]> { missing };
             variants.AddRange(Enumerable.Range(0, types.Length).Where(i => !missing.Contains(i)).Select(i => missing.Append(i).ToArray()));
@@ -150,11 +150,11 @@ public sealed class MasterFix
             }
             var added = Enumerable.Range(0, types.Length).Where(f => !layout.Any(s => s.Field == f)).Select(f => fields[f].Name);
             var removed = layout.Where(s => s.Field < 0).Select(s => s.Type.Name);
-            Log.Info($"Master {table} ({broken.Count} arq.): +[{string.Join(", ", added)}] -[{string.Join(", ", removed)}]");
+            Log.Info($"Master {table} ({broken.Count} files): +[{string.Join(", ", added)}] -[{string.Join(", ", removed)}]");
             return (broken.Count, 0);
         }
 
-        Log.Warn($"Master {table} ({type.Name}): não foi possível deduzir o formato antigo.");
+        Log.Warn($"Master {table} ({type.Name}): could not work out the old layout.");
         return (0, broken.Count);
     }
 

@@ -33,11 +33,11 @@ public sealed class GameTypes
         MapConnectionClasses();
         MapCallSites(Path.Combine(AppContext.BaseDirectory, "methods.tsv"));
         MapPlayerManagerCalls();
-        Log.Info($"Tipos do jogo carregados: {ResultTypes.Count} métodos RPC mapeados.");
+        Log.Info($"Game types loaded: {ResultTypes.Count} RPC methods mapped.");
     }
 
     public Type Get(string name) =>
-        _byName.TryGetValue(name, out var t) ? t : throw new KeyNotFoundException($"Tipo do jogo não encontrado: {name}");
+        _byName.TryGetValue(name, out var t) ? t : throw new KeyNotFoundException($"Game type not found: {name}");
 
     public Assembly Xd => AssemblyLoadContext.GetLoadContext(_game)!.LoadFromAssemblyName(new AssemblyName("XDDLL"));
     public Assembly Unity => AssemblyLoadContext.GetLoadContext(_game)!.LoadFromAssemblyName(new AssemblyName("UnityEngine.CoreModule"));
@@ -54,7 +54,7 @@ public sealed class GameTypes
             foreach (var (typeName, table) in dic)
                 if (_byName.TryGetValue(typeName, out var t)) result[table] = t;
         }
-        catch (Exception e) { Log.Warn($"TableNameDic indisponível ({e.GetType().Name}); usando nomes deduzidos."); }
+        catch (Exception e) { Log.Warn($"TableNameDic unavailable ({e.GetType().Name}); using derived names."); }
 
         foreach (var (name, t) in _byName)
         {
@@ -89,7 +89,7 @@ public sealed class GameTypes
                 var arr = (Array)_serializeBinary.Invoke(null, [new MemoryStream(File.ReadAllBytes(file)), elementType.MakeArrayType(), Unity.GetType("UnityEngine.SerializeField")!])!;
                 rows.AddRange(arr.Cast<object>());
             }
-            catch (Exception e) { Log.Warn($"Tabela {Path.GetFileName(file)} ilegível: {(e.InnerException ?? e).Message}"); }
+            catch (Exception e) { Log.Warn($"Table {Path.GetFileName(file)} unreadable: {(e.InnerException ?? e).Message}"); }
         }
         return rows;
     }
@@ -127,11 +127,11 @@ public sealed class GameTypes
             try
             {
                 var arr = (Array)serialize.Invoke(null, [new MemoryStream(bytes), arrayType, attr])!;
-                sb.AppendLine($"leitura {i}: OK, {arr.Length} registros");
+                sb.AppendLine($"read {i}: OK, {arr.Length} rows");
             }
             catch (Exception e)
             {
-                sb.AppendLine($"leitura {i}: FALHOU: {(e.InnerException ?? e).GetType().Name}: {(e.InnerException ?? e).Message}");
+                sb.AppendLine($"read {i}: FAILED: {(e.InnerException ?? e).GetType().Name}: {(e.InnerException ?? e).Message}");
             }
         }
         return sb.ToString();
@@ -173,7 +173,7 @@ public sealed class GameTypes
     // their type at the call site; methods.tsv lists those, extracted from the decompiled source.
     private void MapCallSites(string file)
     {
-        if (!File.Exists(file)) { Log.Warn($"{file} não encontrado."); return; }
+        if (!File.Exists(file)) { Log.Warn($"{file} not found."); return; }
         foreach (var line in File.ReadLines(file))
         {
             if (line.StartsWith('#')) continue;

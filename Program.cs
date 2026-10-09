@@ -25,7 +25,7 @@ if (args.Contains("--master-fix-all"))
 {
     var sw = System.Diagnostics.Stopwatch.StartNew();
     masterFix.Apply();
-    Log.Info($"Concluído em {sw.Elapsed.TotalSeconds:f0}s");
+    Log.Info($"Done in {sw.Elapsed.TotalSeconds:f0}s");
     return;
 }
 
@@ -54,10 +54,10 @@ if (mta >= 0 && mta + 1 < args.Length)
         var type = (table[0] == 'B' ? "Boltrend" : "Master") + table[1..] + "Data";
         string res;
         try { res = api.Types.TestMasterBin(f, type).Split('\n')[0].Trim(); }
-        catch (Exception e) { res = "tipo não encontrado (" + e.GetType().Name + ")"; }
+        catch (Exception e) { res = "type not found (" + e.GetType().Name + ")"; }
         if (!res.Contains(": OK")) Console.WriteLine($"{Path.GetFileName(f)} [{type}] -> {res}");
     }
-    Console.WriteLine("fim");
+    Console.WriteLine("done");
     return;
 }
 
@@ -83,7 +83,7 @@ app.UseRouting();
 BootFiles.Map(app, config, masterFix);
 app.MapFallback(async (HttpContext ctx) => await api.Handle(ctx));
 
-Log.Info($"Servidor Disgaea RPG ouvindo em {config.BaseUrl}");
-Log.Info($"Pasta do jogo: {config.GameDir}");
-Log.Info($"Dados salvos em: {config.DataDir}");
+Log.Info($"Disgaea RPG server listening on {config.BaseUrl}");
+Log.Info($"Game folder: {config.GameDir}");
+Log.Info($"Save data: {config.DataDir}");
 app.Run();
