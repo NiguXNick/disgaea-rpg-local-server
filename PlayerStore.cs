@@ -129,15 +129,36 @@ public sealed class PlayerStore
         }
     }
 
+    // Session ids carry the account ("<hex uuid>.<random>") so a game left open across a server
+    // restart is still recognised instead of getting empty answers.
     public string OpenSession(Player p)
     {
-        var sid = Guid.NewGuid().ToString("N");
+        var sid = Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(p.Uuid)) + "." + Guid.NewGuid().ToString("N");
         _bySession[sid] = p;
         return sid;
     }
 
-    public Player? BySession(string? sid) =>
-        sid != null && _bySession.TryGetValue(sid, out var p) ? p : null;
+    public Player? BySession(string? sid)
+    {
+        if (string.IsNullOrEmpty(sid)) return null;
+        if (_bySession.TryGetValue(sid, out var p)) return p;
+        var dot = sid.IndexOf('.');
+        if (dot <= 0) return null;
+        try
+        {
+            var uuid = System.Text.Encoding.UTF8.GetString(Convert.FromHexString(sid[..dot]));
+            lock (_gate)
+            {
+                var file = FileFor(uuid);
+                if (!File.Exists(file)) return null;
+                p = JsonSerializer.Deserialize<Player>(File.ReadAllText(file))!;
+            }
+            _bySession[sid] = p;
+            Log.Info($"Session restored for '{uuid}'.");
+            return p;
+        }
+        catch (FormatException) { return null; }
+    }
 
     public void Save(Player p)
     {
