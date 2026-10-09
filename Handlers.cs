@@ -44,6 +44,7 @@ public sealed class Handlers
         _map["player/characters"] = (p, q) => p?.Characters.Select(c => (object?)Characters.ToWire(c, p.Id)).ToList();
         _map["player/decks"] = Decks;
         _map["login/update"] = LoginUpdate;
+        _map["player/deck_groups"] = DeckGroupList;
         // Today's free bingo already drawn: the login bingo skips its lottery animation and the
         // home screen's popup chain continues (see MasterFix.AddMissingTables).
         _map["bingo/index"] = (p, q) => Obj(
@@ -267,20 +268,33 @@ public sealed class Handlers
             ("converted_item_data", Nil));
     }
 
+    // SyncDefineData: deck_group_num groups of deck_max decks each.
+    private const int DeckGroups = 10, DecksPerGroup = 7;
+
+    // Every deck the party screen can flick to must exist: CharacterManager.GetDeckData falls back
+    // to an empty DeckData whose null t_memory_ids crashes it, and PartyEditFlickController reads
+    // memory slots 0..4 without bounds checks, so each deck carries five (empty) memory ids.
     private object? Decks(Player? p, JsonObject q)
     {
         if (p == null) return null;
-        var ids = p.Deck.Concat(Enumerable.Repeat(0UL, 5)).Take(5).ToArray();
-        var leader = p.Character(ids[0]);
-        return new List<object?>
+        var decks = new List<object?>();
+        for (var no = 1; no <= DeckGroups * DecksPerGroup; no++)
         {
-            Obj(("id", 1UL), ("t_player_id", p.Id), ("deck_no", 1), ("name", ""),
+            var ids = (no == 1 ? p.Deck : new List<ulong>()).Concat(Enumerable.Repeat(0UL, 5)).Take(5).ToArray();
+            var leader = p.Character(ids[0]);
+            decks.Add(Obj(("id", (ulong)no), ("t_player_id", p.Id), ("deck_no", no), ("name", ""),
                 ("leader_t_character_id", ids[0]), ("leader_m_character_id", leader?.MCharacterId ?? 0),
                 ("t_character_ids", Obj(("pos1", ids[0]), ("pos2", ids[1]), ("pos3", ids[2]), ("pos4", ids[3]), ("pos5", ids[4]))),
-                ("t_memory_ids", Array.Empty<object>()),
-                ("created_at", p.CreatedAt), ("updated_at", p.CreatedAt)),
-        };
+                ("t_memory_ids", new object[] { 0UL, 0UL, 0UL, 0UL, 0UL }),
+                ("created_at", p.CreatedAt), ("updated_at", p.CreatedAt)));
+        }
+        return decks;
     }
+
+    private static object? DeckGroupList(Player? p, JsonObject q) =>
+        p == null ? null : Enumerable.Range(1, DeckGroups)
+            .Select(g => (object?)Obj(("id", (ulong)g), ("t_player_id", p.Id), ("deck_group_no", g), ("name", "")))
+            .ToList();
 
     internal static Dictionary<string, object?> Obj(params (string Key, object? Value)[] kv) =>
         kv.ToDictionary(x => x.Key, x => x.Value);

@@ -96,6 +96,14 @@ public sealed class GameTypes
 
     private MethodInfo? _serializeBinary;
 
+    public Array? ReadMasterRows(byte[] data, Type elementType)
+    {
+        _serializeBinary ??= Xd.GetType("XD.Serialize.SerializeBinary")!
+            .GetMethod("Serialize", BindingFlags.Public | BindingFlags.Static, [typeof(Stream), typeof(Type), typeof(Type)])!;
+        try { return (Array)_serializeBinary.Invoke(null, [new MemoryStream(data), elementType.MakeArrayType(), Unity.GetType("UnityEngine.SerializeField")!])!; }
+        catch { return null; }
+    }
+
     // True if the game's own XD.Serialize.SerializeBinary accepts this master table data.
     public bool ReadsMasterBin(byte[] data, Type elementType)
     {

@@ -131,6 +131,35 @@ public sealed class MasterFix
             lines.Add("MBingoGroup_1.bin");
             File.WriteAllLines(flist, lines);
         }
+
+        PaidQuartzBannersAcceptFreeQuartz();
+    }
+
+    // Offline there's no real money: banners priced in paid-only quartz (MGacha.price_type 3)
+    // become regular quartz banners (price_type 2), payable with free quartz.
+    private void PaidQuartzBannersAcceptFreeQuartz()
+    {
+        if (!_tables.TryGetValue("MGacha", out var gachaType)) return;
+        var field = Fields(gachaType).FirstOrDefault(f => f.Name == "price_type");
+        if (field == null) return;
+        foreach (var file in Directory.GetFiles(Dir, "MGacha_*.bin"))
+        {
+            var rows = _types.ReadMasterRows(File.ReadAllBytes(file), gachaType);
+            if (rows == null) continue;
+            var changed = 0;
+            foreach (var row in rows)
+            {
+                if ((int)field.GetValue(row)! != 3) continue;
+                field.SetValue(row, 2);
+                changed++;
+            }
+            if (changed == 0) continue;
+            var bytes = _types.WriteMasterBin(rows);
+            if (!_types.ReadsMasterBin(bytes, gachaType)) continue;
+            if (!File.Exists(file + ".bak")) File.Copy(file, file + ".bak");
+            File.WriteAllBytes(file, bytes);
+            Log.Info($"Master {Path.GetFileName(file)}: {changed} paid-quartz banners now accept free quartz.");
+        }
     }
 
     // Diagnostic: fix only one table, with timing.
