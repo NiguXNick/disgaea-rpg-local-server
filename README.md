@@ -16,8 +16,13 @@ weekly and repeatable ones; rewards arrive in the gift box) and the Item World (
 weapons and equipment floor by floor, without innocents for now). The rest of the game is still
 being implemented, see [docs/todo.md](docs/todo.md).
 
-This repository contains **no game files** (executables, DLLs, assets or master data).
+This repository contains **no game files** (executables, DLLs, assets or master data) and no
+encryption keys: the server and the scripts read what they need from your own installation.
 You need the game installed through Steam.
+
+**Only the global Steam release (client 3.2.10, published by Boltrend) is supported.** The
+server and `setup-game.ps1` check the installed build and refuse to touch anything else. The
+Japanese version is a different service and is not supported, and won't be.
 
 ## Requirements
 
@@ -83,6 +88,11 @@ master data, every implemented endpoint and how to debug.
 
 RPC methods that are not implemented yet get a well-formed default response and show up in the
 log as `RPC not implemented`.
+
+## License
+
+[GPL-3.0](LICENSE): you can use, modify and share the code, and forks must stay open source
+under the same license. The license covers this repository's code only, not the game.
 
 ## Disclaimer
 

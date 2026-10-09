@@ -128,6 +128,7 @@ public sealed class MasterFix
         var lines = File.ReadAllLines(flist).ToList();
         if (!lines.Contains("MBingoGroup_1.bin"))
         {
+            if (!File.Exists(flist + ".bak")) File.Copy(flist, flist + ".bak"); // restore-game.ps1 puts it back
             lines.Add("MBingoGroup_1.bin");
             File.WriteAllLines(flist, lines);
         }

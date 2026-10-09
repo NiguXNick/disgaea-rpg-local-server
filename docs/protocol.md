@@ -3,8 +3,10 @@
 ## Transport
 
 - Body: **AES-256-CBC, PKCS7** over MessagePack. No compression.
-- Key: `<read from the installed game>` (common key, `WebRequestAesCryptor`). After login the
-  client switches to the `fuji_key` from `/signin`; this server returns the common key there.
+- Key: the common key, the constant `Orange.Scripts.Cryptor.WebRequestAesCryptor.kCommonKey` in the
+  game's `Assembly-CSharp.dll`. `Crypto.Init` reads it from the player's installation at startup;
+  no key is stored in this repository. After login the client switches to the `fuji_key` from
+  `/signin`; this server returns the common key there.
 - IV: random per request, base64 in the `X-Crypt-Iv` header. The response is encrypted with the
   same IV; echo the header back (the IV is shared static state in the client).
 

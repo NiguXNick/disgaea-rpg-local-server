@@ -1,8 +1,8 @@
 # Master data
 
 Master data (stages, enemies, characters, gachas, items…) ships in
-`StreamingAssets/Data/master`, a password-protected zip (password `<read from the installed game>`). At login the
-hotfix `MasterTool` extracts it to `%USERPROFILE%\AppData\LocalLow\Boltrend\DISGAEA RPG\Boltrend\XDMaster`
+`StreamingAssets/Data/master`, a password-protected zip. At login the hotfix `MasterTool` (which
+holds the password) extracts it to `%USERPROFILE%\AppData\LocalLow\Boltrend\DISGAEA RPG\Boltrend\XDMaster`
 (only if `XDMaster/flist` doesn't exist) and loads every file listed in `flist`.
 
 ## Table file format

@@ -3,8 +3,10 @@
 ## Settings files
 
 `DISGAEA RPG_Data/StreamingAssets/settings/*.ini` are **gzip compressed, then RC4 encrypted**
-with the key `<read from the installed game>` (`XD.tool.XDCryptor` / `FastCryptUtil` in `XDDLL.dll`).
-`tools/XdCrypt.ps1` has `ConvertFrom-XdSettings` / `ConvertTo-XdSettings`.
+(`XD.tool.XDCryptor` / `FastCryptUtil` in `XDDLL.dll`). `tools/XdCrypt.ps1` has
+`ConvertFrom-XdSettings` / `ConvertTo-XdSettings`; its `Initialize-XdCrypt` reads the RC4 key
+(the constant `FastCryptUtil.key_string`) from the installed `XDDLL.dll` by reflection, so no key
+is stored in this repository.
 
 A file `UnencrpytedStreamingAssetsSettings.txt` (misspelling as in the code) containing `false`
 next to `DISGAEA RPG_Data` makes the client read **all** settings files as plain text. We don't

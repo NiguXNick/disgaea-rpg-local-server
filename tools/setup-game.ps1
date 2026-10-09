@@ -10,6 +10,9 @@ param(
 $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\XdCrypt.ps1"
 
+Assert-SupportedGame $GameDir
+Initialize-XdCrypt $GameDir
+
 $ini = Join-Path $GameDir "DISGAEA RPG_Data\StreamingAssets\settings\config_server.ini"
 if (-not (Test-Path $ini)) { throw "config_server.ini not found. Pass -GameDir with the game folder." }
 

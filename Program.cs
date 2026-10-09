@@ -2,6 +2,11 @@ using DrpgServer;
 
 // Local replacement for the shut-down Disgaea RPG (global) servers.
 var config = ServerConfig.Load(args);
+if (GameCheck.Problem(config.GameDir) is { } problem)
+{
+    Log.Error(problem);
+    return;
+}
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls(config.BaseUrl);
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
@@ -95,7 +100,7 @@ app.Use(async (ctx, next) =>
 // Static assets must run before routing, otherwise the API fallback endpoint swallows them.
 BootFiles.UseAssets(app, config);
 app.UseRouting();
-BootFiles.Map(app, config, masterFix);
+BootFiles.Map(app, config, masterFix, api.Types);
 app.MapFallback(async (HttpContext ctx) => await api.Handle(ctx));
 
 Log.Info($"Netherworld Reborn listening on {config.BaseUrl}");

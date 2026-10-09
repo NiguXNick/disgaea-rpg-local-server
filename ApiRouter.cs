@@ -19,6 +19,7 @@ public sealed class ApiRouter
     public ApiRouter(ServerConfig cfg, PlayerStore players)
     {
         _types = new GameTypes(cfg);
+        Crypto.Init(_types);
         _players = players;
         _handlers = new Handlers(_types, players);
     }

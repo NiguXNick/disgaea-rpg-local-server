@@ -2,8 +2,6 @@ namespace DrpgServer;
 
 public sealed class ServerConfig
 {
-    public const string ServerKey = "standalonewindows64_20221122131322";
-
     public required int Port { get; init; }
     public required string GameDir { get; init; }
     public required string DataDir { get; init; }

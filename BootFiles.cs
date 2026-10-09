@@ -8,14 +8,21 @@ namespace DrpgServer;
 // the asset CDN (served straight from the local StreamingAssets copy).
 public static class BootFiles
 {
-    public static void Map(WebApplication app, ServerConfig cfg, MasterFix masterFix)
+    public static void Map(WebApplication app, ServerConfig cfg, MasterFix masterFix, GameTypes types)
     {
         var b = cfg.BaseUrl;
 
-        app.MapGet("/Server/List.ini", () => Text(ServerConfig.ServerKey + "\n"));
+        // The client looks its server entry up by the server_key of its own config_server.ini
+        // (setup-game.ps1 keeps it when redirecting): a '|'-separated list, the first one is used.
+        var settings = Path.Combine(cfg.StreamingAssets, "settings", "config_server.ini");
+        var serverKey = XdSettings.Value(XdSettings.Read(types, settings), "server_key")?.Split('|')[0];
+        if (string.IsNullOrEmpty(serverKey))
+            Log.Error($"No server_key in {settings}; run tools/setup-game.ps1 (or restore-game.ps1 first).");
+
+        app.MapGet("/Server/List.ini", () => Text(serverKey + "\n"));
 
         // Config.ReadText stops at the first blank line and throws on lines without '='.
-        app.MapGet($"/Server/{ServerConfig.ServerKey}.ini", () => Text(string.Join("\n",
+        app.MapGet($"/Server/{serverKey}.ini", () => Text(string.Join("\n",
             $"api={b}/",
             $"asset={b}/asset",
             $"master_bin={b}/master/master",
