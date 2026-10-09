@@ -103,7 +103,13 @@ public static class SchemaWriter
         {
             object? value;
             if (dict != null && dict.TryGetValue(name, out var v)) value = v;
-            else if (source != null && field.DeclaringType!.IsInstanceOfType(source)) value = field.GetValue(source);
+            else if (source != null && field.DeclaringType!.IsInstanceOfType(source))
+            {
+                value = field.GetValue(source);
+                // Real game objects (master rows) keep their nulls: lazily built caches such as
+                // MasterEnemyData.t_character_commands must arrive null, not as an empty array.
+                if (value == null && (field.FieldType.IsArray || IsList(field.FieldType))) value = Nil;
+            }
             else
             {
                 value = defaults == null ? null : field.GetValue(defaults);
