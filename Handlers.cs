@@ -38,6 +38,9 @@ public sealed class Handlers
         _map["player/characters"] = (p, q) => p?.Characters.Select(c => (object?)Characters.ToWire(c, p.Id)).ToList();
         _map["player/decks"] = Decks;
         _map["login/update"] = LoginUpdate;
+        // No raid in progress. An empty object here makes GetRaid.RequestCurrent load raid 0 and
+        // never finish, which keeps the home screen's loading indicator up.
+        _map["raid/current"] = (p, q) => Obj(("current_t_raid_status", Nil));
         // RegularDataManager.UpdateAgendaBadge dereferences new_agenda without a null check.
         _map["player/badges"] = (p, q) => Obj(("new_agenda", Obj()));
     }
