@@ -110,6 +110,9 @@ public static class SchemaWriter
                 // Objects created by a class's own constructor can reference each other in cycles;
                 // only plain values and collections are taken from defaults.
                 if (value != null && !NeedsValue(field.FieldType) && !field.FieldType.IsValueType) value = null;
+                // The live server always sent nested objects and the client rarely null-checks them
+                // (e.g. PlayerBadgeHomeData.new_friend), so unset ones go out as empty objects.
+                if (value == null && FillsWithEmpty(field.FieldType, depth)) value = new Dictionary<string, object?>();
             }
 
             inner.Write(name);
@@ -119,6 +122,20 @@ public static class SchemaWriter
         inner.Flush();
         w.WriteMapHeader(count);
         w.WriteRaw(buffer.WrittenSpan);
+    }
+
+    // Shallow on purpose: some classes contain fields of their own type.
+    private const int MaxEmptyFillDepth = 4;
+
+    // Game data classes only (not Unity/framework types), not abstract.
+    private static bool FillsWithEmpty(Type t, int depth)
+    {
+        if (depth >= MaxEmptyFillDepth || NeedsValue(t) || t.IsValueType || t.IsAbstract || !t.IsClass) return false;
+        if (t.Assembly.GetName().Name != "Assembly-CSharp") return false;
+        if (typeof(Delegate).IsAssignableFrom(t)) return false;
+        for (var b = t; b != null; b = b.BaseType)
+            if (b.FullName == "UnityEngine.Object") return false;
+        return true;
     }
 
     private static bool NeedsValue(Type t) =>
