@@ -13,6 +13,11 @@ public sealed class Gacha(MasterData master, Characters chars)
     private const int ItemTypeCharacter = 2;
     private const int MaxPulls = 10; // the result screen has 10 slots
 
+    // Offline, the standard Premium Summon can give any character that was ever in a summon: the
+    // banner's own rates pick the rarity, then any character of that rarity is drawn.
+    private const ulong AllCharactersGachaId = 100001;
+    private Dictionary<int, List<object>>? _allByRarity;
+
     private readonly Random _rng = new();
 
     // Banners shown on the summon screen. The client keeps an id only if it exists in MGacha,
@@ -64,6 +69,7 @@ public sealed class Gacha(MasterData master, Characters chars)
             var guaranteed = num > 1 && i == num - 1 && fixGroups.Length > 0;
             var item = guaranteed ? RollFromGroups(fixGroups) : RollNormal(gachaId);
             if (item == null) break;
+            if (gachaId == AllCharactersGachaId) item = AnyCharacterOfSameRarity(item);
 
             var mCharId = MasterData.F<ulong>(item, "item_id");
             var rarity = MasterData.F<int>(item, "rarity");
@@ -135,6 +141,21 @@ public sealed class Gacha(MasterData master, Characters chars)
                         && master.Get("MCharacter", MasterData.F<ulong>(x, "item_id")) != null)
             .ToList();
         return Weighted(items, "rate");
+    }
+
+    // Every summonable character (one entry each), grouped by its summon rarity.
+    private object AnyCharacterOfSameRarity(object rolled)
+    {
+        _allByRarity ??= master.All("MGachaGroupItem")
+            .Where(x => MasterData.F<int>(x, "item_type") == ItemTypeCharacter
+                        && MasterData.F<int>(x, "rate") > 0
+                        && master.Get("MCharacter", MasterData.F<ulong>(x, "item_id")) != null)
+            .GroupBy(x => MasterData.F<ulong>(x, "item_id"))
+            .Select(g => g.First())
+            .GroupBy(x => MasterData.F<int>(x, "rarity"))
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var rarity = MasterData.F<int>(rolled, "rarity");
+        return _allByRarity.TryGetValue(rarity, out var pool) && pool.Count > 0 ? pool[_rng.Next(pool.Count)] : rolled;
     }
 
     private object? Weighted(List<object> rows, string field)

@@ -140,25 +140,37 @@ public sealed class MasterFix
     private void PaidQuartzBannersAcceptFreeQuartz()
     {
         if (!_tables.TryGetValue("MGacha", out var gachaType)) return;
-        var field = Fields(gachaType).FirstOrDefault(f => f.Name == "price_type");
-        if (field == null) return;
+        var fields = Fields(gachaType);
+        var priceType = fields.FirstOrDefault(f => f.Name == "price_type");
+        var gachaTypeField = fields.FirstOrDefault(f => f.Name == "gacha_type");
+        var closeAt = fields.FirstOrDefault(f => f.Name == "close_at");
+        if (priceType == null || gachaTypeField == null || closeAt == null) return;
+        const string Forever = "2099-12-31 23:59:59";
         foreach (var file in Directory.GetFiles(Dir, "MGacha_*.bin"))
         {
             var rows = _types.ReadMasterRows(File.ReadAllBytes(file), gachaType);
             if (rows == null) continue;
-            var changed = 0;
+            int paid = 0, reopened = 0;
             foreach (var row in rows)
             {
-                if ((int)field.GetValue(row)! != 3) continue;
-                field.SetValue(row, 2);
-                changed++;
+                if ((int)priceType.GetValue(row)! == 3)
+                {
+                    priceType.SetValue(row, 2);
+                    paid++;
+                }
+                // Expired banners come back (tutorial gachas stay as they are).
+                if ((int)gachaTypeField.GetValue(row)! != 2 && (string?)closeAt.GetValue(row) != Forever)
+                {
+                    closeAt.SetValue(row, Forever);
+                    reopened++;
+                }
             }
-            if (changed == 0) continue;
+            if (paid == 0 && reopened == 0) continue;
             var bytes = _types.WriteMasterBin(rows);
             if (!_types.ReadsMasterBin(bytes, gachaType)) continue;
             if (!File.Exists(file + ".bak")) File.Copy(file, file + ".bak");
             File.WriteAllBytes(file, bytes);
-            Log.Info($"Master {Path.GetFileName(file)}: {changed} paid-quartz banners now accept free quartz.");
+            Log.Info($"Master {Path.GetFileName(file)}: {paid} paid-quartz banners now accept free quartz, {reopened} expired banners reopened.");
         }
     }
 
