@@ -68,8 +68,11 @@ public sealed class Gacha(MasterData master, Characters chars)
             // Multi-pulls get their guaranteed group on the last slot.
             var guaranteed = num > 1 && i == num - 1 && fixGroups.Length > 0;
             var item = guaranteed ? RollFromGroups(fixGroups) : RollNormal(gachaId);
+            // A pull must never come back empty (the client waits forever for the animation).
+            item ??= guaranteed ? RollNormal(gachaId) : null;
+            item ??= AnyCharacter();
             if (item == null) break;
-            if (gachaId == AllCharactersGachaId) item = AnyCharacterOfSameRarity(item);
+            if (gachaId == AllCharactersGachaId) item = AnyCharacterOfSameRarity(item) ?? item;
 
             var mCharId = MasterData.F<ulong>(item, "item_id");
             var rarity = MasterData.F<int>(item, "rarity");
@@ -115,8 +118,26 @@ public sealed class Gacha(MasterData master, Characters chars)
             ("overflow_exchange_ticket", false));
     }
 
-    private bool HasLots(ulong gachaId) =>
-        master.All("MGachaLot").Any(l => MasterData.F<ulong>(l, "m_gacha_id") == gachaId);
+    // Newer banners feature characters missing from the shipped master data (no MCharacter row),
+    // so only banners with at least one rollable character are offered.
+    private Dictionary<ulong, bool>? _rollable;
+
+    private bool HasLots(ulong gachaId)
+    {
+        if (_rollable == null)
+        {
+            var groupsWithCharacters = master.All("MGachaGroupItem")
+                .Where(x => MasterData.F<int>(x, "item_type") == ItemTypeCharacter
+                            && MasterData.F<int>(x, "rate") > 0
+                            && master.Get("MCharacter", MasterData.F<ulong>(x, "item_id")) != null)
+                .Select(x => MasterData.F<ulong>(x, "m_gacha_group_id"))
+                .ToHashSet();
+            _rollable = master.All("MGachaLot")
+                .GroupBy(l => MasterData.F<ulong>(l, "m_gacha_id"))
+                .ToDictionary(g => g.Key, g => g.Any(l => groupsWithCharacters.Contains(MasterData.F<ulong>(l, "m_gacha_group_id"))));
+        }
+        return _rollable.GetValueOrDefault(gachaId);
+    }
 
     // MGachaLot picks a group by rate, then MGachaGroupItem picks an item in it by rate.
     // Non-character items are rerolled: every slot must become a character.
@@ -143,8 +164,15 @@ public sealed class Gacha(MasterData master, Characters chars)
         return Weighted(items, "rate");
     }
 
+    private object? AnyCharacter()
+    {
+        AnyCharacterOfSameRarity(null);
+        var all = _allByRarity!.Values.SelectMany(x => x).ToList();
+        return all.Count == 0 ? null : all[_rng.Next(all.Count)];
+    }
+
     // Every summonable character (one entry each), grouped by its summon rarity.
-    private object AnyCharacterOfSameRarity(object rolled)
+    private object? AnyCharacterOfSameRarity(object? rolled)
     {
         _allByRarity ??= master.All("MGachaGroupItem")
             .Where(x => MasterData.F<int>(x, "item_type") == ItemTypeCharacter
@@ -154,6 +182,7 @@ public sealed class Gacha(MasterData master, Characters chars)
             .Select(g => g.First())
             .GroupBy(x => MasterData.F<int>(x, "rarity"))
             .ToDictionary(g => g.Key, g => g.ToList());
+        if (rolled == null) return null;
         var rarity = MasterData.F<int>(rolled, "rarity");
         return _allByRarity.TryGetValue(rarity, out var pool) && pool.Count > 0 ? pool[_rng.Next(pool.Count)] : rolled;
     }

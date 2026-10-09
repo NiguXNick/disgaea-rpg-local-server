@@ -133,6 +133,34 @@ public sealed class MasterFix
         }
 
         PaidQuartzBannersAcceptFreeQuartz();
+        Rewrite("MStage", "act", v => v is int a && a != 0 ? 0 : null, "stages no longer cost AP");
+    }
+
+    // Generic offline tweak: change one field of every row of a table (change returns null to keep).
+    private void Rewrite(string table, string fieldName, Func<object?, object?> change, string what)
+    {
+        if (!_tables.TryGetValue(table, out var type)) return;
+        var field = Fields(type).FirstOrDefault(f => f.Name == fieldName);
+        if (field == null) return;
+        foreach (var file in Directory.GetFiles(Dir, table + "_*.bin"))
+        {
+            var rows = _types.ReadMasterRows(File.ReadAllBytes(file), type);
+            if (rows == null) continue;
+            var changed = 0;
+            foreach (var row in rows)
+            {
+                var updated = change(field.GetValue(row));
+                if (updated == null) continue;
+                field.SetValue(row, updated);
+                changed++;
+            }
+            if (changed == 0) continue;
+            var bytes = _types.WriteMasterBin(rows);
+            if (!_types.ReadsMasterBin(bytes, type)) continue;
+            if (!File.Exists(file + ".bak")) File.Copy(file, file + ".bak");
+            File.WriteAllBytes(file, bytes);
+            Log.Info($"Master {Path.GetFileName(file)}: {changed} rows, {what}.");
+        }
     }
 
     // Offline there's no real money: banners priced in paid-only quartz (MGacha.price_type 3)

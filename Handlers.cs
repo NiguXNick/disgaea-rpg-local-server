@@ -235,8 +235,10 @@ public sealed class Handlers
         return Obj(
             ("id", p.Id), ("t_player_id", p.Id), ("rank", 1), ("exp", 0L), ("exp_total", 0L),
             ("shop_rank", 1), ("survey_rank", 1u),
-            ("act", 100), ("act_max", 100), ("act_at", now),
-            ("character_max", 200), ("weapon_max", 200), ("equipment_max", 200), ("innocent_store_max", 200),
+            // Offline: AP is always full at the game's cap (stages cost 0 AP anyway, see MasterFix)
+            // and boxes are at their maximum size (SyncDefineData *_space_max).
+            ("act", 9999), ("act_max", 9999), ("act_at", now),
+            ("character_max", 999), ("weapon_max", 999), ("equipment_max", 999), ("innocent_store_max", 999),
             ("deck_no", 1), ("kingdom_rank", StartKingdomRank),
             ("favorite_char_id", leader?.Id ?? 0), ("favorite_m_char_id", leader?.MCharacterId ?? 0),
             ("agenda_confirm_at", now), ("last_free_gacha_at", ""), ("verify_age_date", ""));
