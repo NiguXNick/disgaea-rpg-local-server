@@ -168,6 +168,11 @@ public static class SchemaWriter
         return true;
     }
 
+    // ObjectPacker (ReflectionCacheEntry) maps type.GetFields(Instance|Public|NonPublic): private
+    // fields declared in a base class are not in that list, so sending one is an unknown key
+    // (e.g. the readonly auto-property backing fields of WeaponOrEquipmentUserBase).
+    internal static bool ClientSees(FieldInfo f, Type type) => !(f.IsPrivate && f.DeclaringType != type);
+
     private static (string Name, FieldInfo Field)[] Fields(Type type)
     {
         lock (FieldCache)
@@ -178,7 +183,7 @@ public static class SchemaWriter
             {
                 foreach (var f in t.GetFields(InstanceFields | BindingFlags.DeclaredOnly))
                 {
-                    if (!Supported(f.FieldType)) continue;
+                    if (!Supported(f.FieldType) || !ClientSees(f, type)) continue;
                     var name = f.Name;
                     int end;
                     if (name[0] == '<' && (end = name.IndexOf('>')) > 1) name = name.Substring(1, end - 1);

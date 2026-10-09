@@ -10,6 +10,10 @@ expects (`methods.tsv` + the `ResponseData.result` field of each connection clas
 
 - **Unknown keys throw** (`FormatException` → reboot dialog). Keys are field names; auto-property
   backing fields use the property name. SchemaWriter drops unknown keys and logs a warning.
+- The field list is `type.GetFields(Instance | Public | NonPublic)` of the concrete type, so
+  **private fields of base classes don't exist** for the client (e.g. the readonly auto-property
+  backing fields of `WeaponOrEquipmentUserBase`). Sending one is an unknown key; the purchase reply
+  failed that way. SchemaWriter applies the same rule (`ClientSees`).
 - **Field initialisers don't run** (`GetUninitializedObject`): a key that isn't sent is
   0 / null / false on the client.
 - Integer widths: `int` must be fixint/int8/int16/int32/uint8/uint16/uint32 (never int64); `ulong`/`uint` must be

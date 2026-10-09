@@ -162,6 +162,7 @@ public sealed class GameTypes
             foreach (var f in t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 var ft = f.FieldType;
+                if (!SchemaWriter.ClientSees(f, type)) continue;
                 if (ft.IsValueType || ft == typeof(string) || ft.IsArray || (ft.IsGenericType && ft.GetGenericTypeDefinition() == typeof(List<>))) continue;
                 var name = f.Name;
                 int end;
