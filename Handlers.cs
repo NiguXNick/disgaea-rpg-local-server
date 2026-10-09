@@ -45,6 +45,7 @@ public sealed class Handlers
         _map["player/decks"] = Decks;
         _map["login/update"] = LoginUpdate;
         _map["player/deck_groups"] = DeckGroupList;
+        _map["arena/current"] = (p, q) => p == null ? null : Obj(("t_arena", Arena(p)));
         // Today's free bingo already drawn: the login bingo skips its lottery animation and the
         // home screen's popup chain continues (see MasterFix.AddMissingTables).
         _map["bingo/index"] = (p, q) => Obj(
@@ -223,8 +224,15 @@ public sealed class Handlers
             ("player_setting", Obj(("id", p.Id), ("created_at", p.CreatedAt), ("updated_at", now))),
             ("status", Status(p)),
             ("act_give_count", Obj()),
-            ("player_arena", Obj(("id", p.Id), ("act_at", now))));
+            ("player_arena", Arena(p)));
     }
+
+    // Arena BP is kept full: PlayerArenaBattleData.BpNow parses act_at every frame unless act is
+    // at the cap, and a blank act_at (the default arena/current reply) throws on each frame.
+    private static Dictionary<string, object?> Arena(Player p) => Obj(
+        ("id", p.Id), ("m_arena_group_id", 0UL), ("battle_count", 0), ("act", 10),
+        ("act_at", Time.Format(DateTime.UtcNow)),
+        ("is_previous_reward_received", true), ("is_half_reward_received", true));
 
     // Every response that carries after_t_status replaces the client's whole status, so it must
     // always be the real one (a blank one resets kingdom_rank to 0 and breaks the home screen).
